@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import { Copy, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLogs } from "@/lib/log-context"
@@ -176,58 +176,7 @@ export function TradeTicket({
   const [size, setSize] = useState("")
   const [tif, setTif] = useLocalStorage<TimeInForce>(`${storageKey}_tif`, "GTC")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [orders] = useState<Order[]>([
-    {
-      id: "order_1",
-      type: "buy",
-      side: "yes",
-      price: 0.65,
-      size: 100,
-      tif: "GTC",
-      timestamp: new Date(Date.now() - 300000).toISOString(),
-      status: "placed",
-    },
-    {
-      id: "order_2",
-      type: "sell",
-      side: "no",
-      price: 0.35,
-      size: 150,
-      tif: "FAK",
-      timestamp: new Date(Date.now() - 180000).toISOString(),
-      status: "placed",
-    },
-    {
-      id: "order_3",
-      type: "buy",
-      side: "no",
-      price: 0.28,
-      size: 200,
-      tif: "GTC",
-      timestamp: new Date(Date.now() - 120000).toISOString(),
-      status: "placed",
-    },
-    {
-      id: "order_4",
-      type: "sell",
-      side: "yes",
-      price: 0.68,
-      size: 75,
-      tif: "FOK",
-      timestamp: new Date(Date.now() - 60000).toISOString(),
-      status: "placed",
-    },
-    {
-      id: "order_5",
-      type: "buy",
-      side: "yes",
-      price: 0.64,
-      size: 120,
-      tif: "GTC",
-      timestamp: new Date(Date.now() - 30000).toISOString(),
-      status: "placed",
-    },
-  ])
+  const [orders, setOrders] = useState<Order[]>([])
 
   // Trade settings
   const [address, setAddress] = useLocalStorage<string>(`${storageKey}_address`, defaultAddress)
@@ -326,6 +275,76 @@ export function TradeTicket({
       return null
     }
   }, [pk, address, clobApiKey, clobSecret, clobPassPhrase, host, chainId, signatureType, addLog])
+
+  // Function to fetch orders from CLOB client
+  const fetchOrders = useCallback(async () => {
+    if (!clobClient) {
+      setOrders([])
+      return
+    }
+
+    try {
+      const openOrders = await clobClient.getOpenOrders()
+
+      // Log raw orders from API
+      addLog(`Received ${openOrders.length} orders from API: ${JSON.stringify(openOrders, null, 2)}`, "message")
+
+      // Transform OpenOrder[] to Order[]
+      const transformedOrders: Order[] = openOrders.map((openOrder) => {
+        // Map side: "BUY" -> "buy", "SELL" -> "sell"
+        const type: OrderType = openOrder.side === "BUY" ? "buy" : "sell"
+
+        // Map outcome: "YES" -> "yes", "NO" -> "no"
+        const side: OrderSide = openOrder.outcome === "YES" ? "yes" : "no"
+
+        // Calculate remaining size (original_size - size_matched)
+        const remainingSize = parseFloat(openOrder.original_size) - parseFloat(openOrder.size_matched)
+
+        // Map order_type to TimeInForce
+        let tif: TimeInForce = "GTC"
+        if (openOrder.order_type === "FOK") tif = "FOK"
+        else if (openOrder.order_type === "FAK") tif = "FAK"
+        else if (openOrder.order_type === "GTD") tif = "GTD"
+
+        return {
+          id: openOrder.id,
+          type,
+          side,
+          price: parseFloat(openOrder.price),
+          size: remainingSize,
+          tif,
+          timestamp: new Date(openOrder.created_at * 1000).toISOString(),
+          status: openOrder.status,
+        }
+      })
+
+      setOrders(transformedOrders)
+      addLog(`Fetched ${transformedOrders.length} orders`, "message")
+    } catch (error) {
+      addLog(
+        `Error fetching orders: ${error instanceof Error ? error.message : String(error)}`,
+        "error"
+      )
+    }
+  }, [clobClient, addLog])
+
+  // Periodically fetch orders from CLOB client
+  useEffect(() => {
+    if (!clobClient) {
+      setOrders([])
+      return
+    }
+
+    // Fetch immediately
+    fetchOrders()
+
+    // Then fetch every 5 seconds
+    const interval = setInterval(fetchOrders, 5000)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [clobClient, fetchOrders])
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -458,6 +477,8 @@ export function TradeTicket({
       // Check if status is "live" (success), otherwise log as error
       if (response?.status === "live") {
         addLog(`Order placed successfully: ${response?.order_id || "unknown"}`, "api-response")
+        // Refetch orders to show the new order
+        await fetchOrders()
       } else {
         addLog(
           `Order failed with status ${response?.status || "unknown"}: ${JSON.stringify(response, null, 2)}`,

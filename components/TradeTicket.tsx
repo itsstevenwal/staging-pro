@@ -540,9 +540,10 @@ export function TradeTicket({
             onChange={e => setTif(e.target.value as TimeInForce)}
             className="w-full rounded-sm border border-white/30 bg-black px-1 py-0.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
-            <option value="GTC">GTC (Good Till Cancel)</option>
-            <option value="IOC">IOC (Immediate Or Cancel)</option>
-            <option value="FOK">FOK (Fill Or Kill)</option>
+            <option value="GTC">GTC</option>
+            <option value="FAK">FAK</option>
+            <option value="FOK">FOK</option>
+            <option value="GTD">GTD</option>
           </select>
         </div>
 

@@ -58,9 +58,27 @@ export function Orderbook() {
   const currentOrderbook = activeTab === "yes" ? yesOrderbook : noOrderbook
   const { bids, asks } = currentOrderbook
 
+  // Sort asks in descending order (highest price first)
+  const sortedAsks = [...asks].sort((a, b) => b.price - a.price)
+
+  // Always show exactly 8 levels on each side, pad with empty if needed
+  const limitedBids: (Order | null)[] = [...bids.slice(0, 8)]
+  const limitedAsks: (Order | null)[] = [...sortedAsks.slice(0, 8)]
+
+  // Pad to exactly 8 rows
+  // Bids: pad at the bottom (push)
+  while (limitedBids.length < 8) {
+    limitedBids.push(null)
+  }
+  // Asks: pad at the top (unshift) so empty rows appear at the top
+  while (limitedAsks.length < 8) {
+    limitedAsks.unshift(null)
+  }
+
   const maxTotal = Math.max(
-    ...bids.map(b => b.total),
-    ...asks.map(a => a.total)
+    ...limitedBids.filter(b => b !== null).map(b => b.total),
+    ...limitedAsks.filter(a => a !== null).map(a => a.total),
+    1 // fallback to 1 to avoid division by zero
   )
 
   const copyToClipboard = async (text: string) => {
@@ -132,22 +150,34 @@ export function Orderbook() {
           </button>
         </div>
       </div>
-      <div className="flex-1 overflow-auto">
+      <div className="flex-shrink-0">
         {/* Asks (Sell Orders) */}
         <div className="space-y-0">
-          {asks.map((ask, index) => (
+          {limitedAsks.map((ask, index) => (
             <div
               key={`ask-${index}`}
               className="relative flex items-center justify-between px-2 py-0.5 text-sm hover:bg-accent"
             >
-              <div
-                className="absolute left-0 top-0 h-full bg-red-500/40"
-                style={{ width: `${(ask.total / maxTotal) * 100}%` }}
-              />
+              {ask && (
+                <div
+                  className="absolute left-0 top-0 h-full bg-red-500/40"
+                  style={{ width: `${(ask.total / maxTotal) * 100}%` }}
+                />
+              )}
               <div className="relative z-10 flex w-full items-center justify-between">
-                <span className="text-red-500">{ask.price.toFixed(2)}</span>
-                <span className="text-muted-foreground">{ask.size}</span>
-                <span className="text-muted-foreground">{ask.total}</span>
+                {ask ? (
+                  <>
+                    <span className="text-red-500">{ask.price.toFixed(2)}</span>
+                    <span className="text-muted-foreground">{ask.size}</span>
+                    <span className="text-muted-foreground">{ask.total}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">—</span>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -156,25 +186,37 @@ export function Orderbook() {
         {/* Spread */}
         <div className="border-y border-white/30 bg-muted/50 px-2 py-1 text-center text-sm font-medium">
           <div className="text-muted-foreground">
-            Spread: {asks[0] && bids[0] ? (asks[0].price - bids[0].price).toFixed(4) : "0.0000"}
+            Spread: {limitedAsks[0] && limitedBids[0] && limitedAsks[0] !== null && limitedBids[0] !== null ? (limitedAsks[0].price - limitedBids[0].price).toFixed(4) : "0.0000"}
           </div>
         </div>
 
         {/* Bids (Buy Orders) */}
         <div className="space-y-0">
-          {bids.map((bid, index) => (
+          {limitedBids.map((bid, index) => (
             <div
               key={`bid-${index}`}
               className="relative flex items-center justify-between px-2 py-0.5 text-sm hover:bg-accent"
             >
-              <div
-                className="absolute left-0 top-0 h-full bg-green-500/40"
-                style={{ width: `${(bid.total / maxTotal) * 100}%` }}
-              />
+              {bid && (
+                <div
+                  className="absolute left-0 top-0 h-full bg-green-500/40"
+                  style={{ width: `${(bid.total / maxTotal) * 100}%` }}
+                />
+              )}
               <div className="relative z-10 flex w-full items-center justify-between">
-                <span className="text-green-500">{bid.price.toFixed(2)}</span>
-                <span className="text-muted-foreground">{bid.size}</span>
-                <span className="text-muted-foreground">{bid.total}</span>
+                {bid ? (
+                  <>
+                    <span className="text-green-500">{bid.price.toFixed(2)}</span>
+                    <span className="text-muted-foreground">{bid.size}</span>
+                    <span className="text-muted-foreground">{bid.total}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">—</span>
+                  </>
+                )}
               </div>
             </div>
           ))}

@@ -74,8 +74,8 @@ export function WebSocketLogs() {
     }
 
     return (
-        <div className="flex h-full flex-col rounded-lg border border-white/30 bg-black">
-            <div className="flex items-center justify-between border-b border-white/30 px-2 py-1">
+        <div className="flex h-full flex-col rounded-lg border border-white/30 bg-black min-h-0">
+            <div className="flex items-center justify-between border-b border-white/30 px-2 py-1 flex-shrink-0">
                 <h2>logs</h2>
                 <div className="flex items-center gap-2">
                     <div
@@ -87,7 +87,7 @@ export function WebSocketLogs() {
                     </span>
                 </div>
             </div>
-            <div className="flex-1 overflow-auto p-2 font-mono text-xs">
+            <div className="flex-1 overflow-auto p-2 font-mono text-xs min-h-0">
                 {logs.length === 0 ? (
                     <div className="text-center text-muted-foreground">
                         Waiting for WebSocket messages...

@@ -9,7 +9,21 @@ type OrderType = "buy" | "sell"
 type OrderSide = "yes" | "no"
 type TimeInForce = "GTC" | "IOC" | "FOK"
 
-export function TradeTicket() {
+interface TradeTicketProps {
+  defaultAddress?: string
+  defaultPk?: string
+  defaultClobApiKey?: string
+  defaultClobSecret?: string
+  defaultClobPassPhrase?: string
+}
+
+export function TradeTicket({
+  defaultAddress = "0xFeA4cB3dD4ca7CefD3368653B7D6FF9BcDFca604",
+  defaultPk = "79eb3f434fe848db33e1f86107a407a01d1dd18c5da4b03d674a47a5499380c7",
+  defaultClobApiKey = "b349bff6-7af8-0470-ed25-22a2a5e1c154",
+  defaultClobSecret = "qXRtb5OefyuZdv9A4lZ3JAaoBn1-JTZJ7KKQ63jstqY=",
+  defaultClobPassPhrase = "2cd4e53cbde7caf0771a5ea0669c2b67f7fa962d5d8c8c241564fd7ece626ade",
+}: TradeTicketProps = {}) {
   const { addLog } = useLogs()
   const [orderType, setOrderType] = useState<OrderType>("buy")
   const [orderSide, setOrderSide] = useState<OrderSide>("yes")
@@ -19,11 +33,11 @@ export function TradeTicket() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Trade settings
-  const [address, setAddress] = useState<string>("0xFeA4cB3dD4ca7CefD3368653B7D6FF9BcDFca604")
-  const [pk, setPk] = useState<string>("79eb3f434fe848db33e1f86107a407a01d1dd18c5da4b03d674a47a5499380c7")
-  const [clobApiKey, setClobApiKey] = useState<string>("b349bff6-7af8-0470-ed25-22a2a5e1c154")
-  const [clobSecret, setClobSecret] = useState<string>("qXRtb5OefyuZdv9A4lZ3JAaoBn1-JTZJ7KKQ63jstqY=")
-  const [clobPassPhrase, setClobPassPhrase] = useState<string>("2cd4e53cbde7caf0771a5ea0669c2b67f7fa962d5d8c8c241564fd7ece626ade")
+  const [address, setAddress] = useState<string>(defaultAddress)
+  const [pk, setPk] = useState<string>(defaultPk)
+  const [clobApiKey, setClobApiKey] = useState<string>(defaultClobApiKey)
+  const [clobSecret, setClobSecret] = useState<string>(defaultClobSecret)
+  const [clobPassPhrase, setClobPassPhrase] = useState<string>(defaultClobPassPhrase)
 
   // Visibility states for hidden fields
   const [showPk, setShowPk] = useState(false)
@@ -155,7 +169,7 @@ export function TradeTicket() {
             />
             <button
               onClick={() => setShowClobApiKey(!showClobApiKey)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-1 text-white hover:bg-white/5 active:opacity-50 ettransition-colors"
             >
               {showClobApiKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
             </button>

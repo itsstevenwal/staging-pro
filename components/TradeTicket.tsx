@@ -108,15 +108,15 @@ function OrdersTable({ orders }: OrdersTableProps) {
   }
 
   return (
-    <div>
-      <table className="w-full text-[11px]">
+    <div className="overflow-x-auto">
+      <table className="w-full text-[11px] min-w-max">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id} className="border-b border-white/30">
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-2 py-1 text-left text-[11px] text-muted-foreground font-medium"
+                  className="px-2 py-1 text-left text-[11px] text-muted-foreground font-medium whitespace-nowrap"
                 >
                   {header.isPlaceholder
                     ? null
@@ -136,7 +136,7 @@ function OrdersTable({ orders }: OrdersTableProps) {
               className="border-b border-white/10 hover:bg-white/5"
             >
               {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-2 py-1">
+                <td key={cell.id} className="px-2 py-1 whitespace-nowrap">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
               ))}

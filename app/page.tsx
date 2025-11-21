@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <div className="flex h-screen flex-col bg-black">
       <header className="border-b border-white/30 px-1 py-1 flex items-center justify-between gap-2 flex-wrap">
-        <h1 className="text-sm font-italic font-bold">sp</h1>
+        <h1 className="text-xs font-italic font-bold">sp</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1">
             <label className="text-[10px] text-muted-foreground whitespace-nowrap">Chain ID:</label>

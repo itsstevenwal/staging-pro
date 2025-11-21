@@ -150,9 +150,9 @@ export function Orderbook() {
           </button>
         </div>
       </div>
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 overflow-x-auto">
         {/* Asks (Sell Orders) */}
-        <div className="space-y-0">
+        <div className="space-y-0 min-w-max">
           {limitedAsks.map((ask, index) => (
             <div
               key={`ask-${index}`}
@@ -164,7 +164,7 @@ export function Orderbook() {
                   style={{ width: `${(ask.total / maxTotal) * 100}%` }}
                 />
               )}
-              <div className="relative z-10 flex w-full items-center justify-between">
+              <div className="relative z-10 flex w-full items-center justify-between gap-2 whitespace-nowrap">
                 {ask ? (
                   <>
                     <span className="text-red-500">{ask.price.toFixed(2)}</span>
@@ -203,7 +203,7 @@ export function Orderbook() {
                   style={{ width: `${(bid.total / maxTotal) * 100}%` }}
                 />
               )}
-              <div className="relative z-10 flex w-full items-center justify-between">
+              <div className="relative z-10 flex w-full items-center justify-between gap-2 whitespace-nowrap">
                 {bid ? (
                   <>
                     <span className="text-green-500">{bid.price.toFixed(2)}</span>

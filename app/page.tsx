@@ -1,18 +1,21 @@
 "use client"
 
-import { useState } from "react"
 import { Orderbook } from "@/components/Orderbook"
 import { TradeTicket } from "@/components/TradeTicket"
 import { WebSocketLogs } from "@/components/WebSocketLogs"
+import { useLocalStorage } from "@/lib/use-local-storage"
 
 export default function Home() {
-  const [wsUrl, setWsUrl] = useState<string>(
-    process.env.NEXT_PUBLIC_WS_URL || "wss://ws-subscriptions-clob-staging.polymarket.com/ws/market"
+  const [wsUrl, setWsUrl] = useLocalStorage<string>(
+    "config_wsUrl",
+    process.env.NEXT_PUBLIC_WS_URL || "wss://ws-subscriptions-clob-staging.polymarket.com"
   )
-  const [httpUrl, setHttpUrl] = useState<string>(
+  const [httpUrl, setHttpUrl] = useLocalStorage<string>(
+    "config_httpUrl",
     process.env.NEXT_PUBLIC_HTTP_URL || ""
   )
-  const [chainId, setChainId] = useState<string>(
+  const [chainId, setChainId] = useLocalStorage<string>(
+    "config_chainId",
     process.env.NEXT_PUBLIC_CHAIN_ID || ""
   )
 
@@ -60,7 +63,7 @@ export default function Home() {
             <Orderbook wsUrl={wsUrl} />
           </div>
           <div className="flex-1 min-h-0">
-            <WebSocketLogs wsUrl={wsUrl} />
+            <WebSocketLogs />
           </div>
         </div>
 
@@ -77,6 +80,7 @@ export default function Home() {
             defaultClobApiKey="1229b503-3124-94d7-0b28-46e64418510f"
             defaultClobSecret="1vslCNSHeKXnPIsitiDirDrQ8sPPI4hyXYqIXkBwfPs="
             defaultClobPassPhrase="8f25643b36d0c8be522646356010f3b1c61c1b47eada77ad8b4b58e9be7c87c0"
+            storageKey="tradeticket_2"
           />
         </div>
       </main>

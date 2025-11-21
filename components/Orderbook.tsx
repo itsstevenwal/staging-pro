@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Copy } from "lucide-react"
 import { ClobClient } from "@polymarket/clob-client"
 import { useLogs } from "@/lib/log-context"
+import { useLocalStorage } from "@/lib/use-local-storage"
 
 interface Order {
   price: number
@@ -46,9 +47,15 @@ const serializeError = (error: unknown): string => {
 
 export function Orderbook({ wsUrl }: OrderbookProps) {
   const { addLog } = useLogs()
-  const [activeTab, setActiveTab] = useState<"yes" | "no">("yes")
-  const [yesTokenId, setYesTokenId] = useState<string>("71321045679252212594626385532706912750332728571942532289631379312455583992563")
-  const [noTokenId, setNoTokenId] = useState<string>("52114319501245915516055106046884209969926127482827954674443846427813813222426")
+  const [activeTab, setActiveTab] = useLocalStorage<"yes" | "no">("orderbook_activeTab", "yes")
+  const [yesTokenId, setYesTokenId] = useLocalStorage<string>(
+    "orderbook_yesTokenId",
+    "71321045679252212594626385532706912750332728571942532289631379312455583992563"
+  )
+  const [noTokenId, setNoTokenId] = useLocalStorage<string>(
+    "orderbook_noTokenId",
+    "52114319501245915516055106046884209969926127482827954674443846427813813222426"
+  )
 
   // Yes orderbook data
   const [yesOrderbook, setYesOrderbook] = useState<OrderbookData>({
@@ -84,10 +91,12 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
       return
     }
 
-    const ws = new WebSocket(wsUrl)
+    // Append /ws/market to the WebSocket URL
+    const marketWsUrl = wsUrl.endsWith('/') ? `${wsUrl}ws/market` : `${wsUrl}/ws/market`
+    const ws = new WebSocket(marketWsUrl)
 
     ws.onopen = () => {
-      addLog("WebSocket connected for orderbook updates", "connection")
+      addLog(`WebSocket connected for orderbook updates: ${marketWsUrl}`, "connection")
       setIsConnected(true)
 
       // Subscribe to market channel with asset IDs
@@ -122,6 +131,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
               size: parseFloat(size),
               total: 0, // Will calculate below
             }))
+            .filter(order => order.size > 0) // Filter out zero-size orders
             .sort((a, b) => b.price - a.price) // Sort descending (highest first)
             .map((order, index, arr) => {
               const total = index === 0
@@ -137,6 +147,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
               size: parseFloat(size),
               total: 0, // Will calculate below
             }))
+            .filter(order => order.size > 0) // Filter out zero-size orders
             .sort((a, b) => a.price - b.price) // Sort ascending (lowest first)
             .map((order, index, arr) => {
               const total = index === 0
@@ -148,43 +159,127 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
           return { bids: processedBids, asks: processedAsks }
         }
 
-        // Handle array format: [{ asset_id, bids, asks, event_type, ... }, ...]
-        if (Array.isArray(data)) {
-          data.forEach((item) => {
-            if (item.event_type === "book" && item.asset_id) {
-              const assetId = item.asset_id
-              const bids = item.bids || []
-              const asks = item.asks || []
+        // Apply incremental price change updates to existing orderbook
+        const applyPriceChange = (
+          currentOrderbook: OrderbookData,
+          price: string,
+          size: string,
+          side: string
+        ): OrderbookData => {
+          const priceNum = parseFloat(price)
+          const sizeNum = parseFloat(size)
+          const isBid = side === "BUY"
+          const targetArray = isBid ? [...currentOrderbook.bids] : [...currentOrderbook.asks]
 
-              // Ensure bids and asks are in the correct format [price, size][]
-              // If they're objects, convert them
-              const formattedBids: Array<[string, string]> = bids.map((bid: any) => {
-                if (Array.isArray(bid) && bid.length >= 2) {
-                  return [String(bid[0]), String(bid[1])]
-                } else if (typeof bid === "object" && bid !== null) {
-                  return [String(bid.price || bid[0] || "0"), String(bid.size || bid[1] || "0")]
-                }
-                return ["0", "0"]
-              })
+          // Find existing order at this price level
+          const existingIndex = targetArray.findIndex(order => order.price === priceNum)
 
-              const formattedAsks: Array<[string, string]> = asks.map((ask: any) => {
-                if (Array.isArray(ask) && ask.length >= 2) {
-                  return [String(ask[0]), String(ask[1])]
-                } else if (typeof ask === "object" && ask !== null) {
-                  return [String(ask.price || ask[0] || "0"), String(ask.size || ask[1] || "0")]
-                }
-                return ["0", "0"]
-              })
+          if (sizeNum === 0) {
+            // Remove order if size is 0
+            if (existingIndex !== -1) {
+              targetArray.splice(existingIndex, 1)
+            }
+          } else {
+            // Update or add order
+            const newOrder: Order = {
+              price: priceNum,
+              size: sizeNum,
+              total: 0, // Will recalculate below
+            }
 
-              const orderbookData = processOrderbook(formattedBids, formattedAsks)
+            if (existingIndex !== -1) {
+              // Update existing order
+              targetArray[existingIndex] = newOrder
+            } else {
+              // Add new order
+              targetArray.push(newOrder)
+            }
+          }
 
-              if (assetId === yesTokenId) {
-                setYesOrderbook(orderbookData)
-              } else if (assetId === noTokenId) {
-                setNoOrderbook(orderbookData)
+          // Re-sort and recalculate totals
+          if (isBid) {
+            targetArray.sort((a, b) => b.price - a.price)
+            targetArray.forEach((order, index) => {
+              order.total = index === 0
+                ? order.size
+                : targetArray[index - 1].total + order.size
+            })
+            return { bids: targetArray, asks: currentOrderbook.asks }
+          } else {
+            targetArray.sort((a, b) => a.price - b.price)
+            targetArray.forEach((order, index) => {
+              order.total = index === 0
+                ? order.size
+                : targetArray[index - 1].total + order.size
+            })
+            return { bids: currentOrderbook.bids, asks: targetArray }
+          }
+        }
+
+        // Helper to process a single book event
+        const processBookEvent = (item: any) => {
+          if (item.event_type === "book" && item.asset_id) {
+            const assetId = item.asset_id
+            const bids = item.bids || []
+            const asks = item.asks || []
+
+            // Ensure bids and asks are in the correct format [price, size][]
+            // If they're objects, convert them
+            const formattedBids: Array<[string, string]> = bids.map((bid: any) => {
+              if (Array.isArray(bid) && bid.length >= 2) {
+                return [String(bid[0]), String(bid[1])]
+              } else if (typeof bid === "object" && bid !== null) {
+                return [String(bid.price || bid[0] || "0"), String(bid.size || bid[1] || "0")]
               }
+              return ["0", "0"]
+            })
+
+            const formattedAsks: Array<[string, string]> = asks.map((ask: any) => {
+              if (Array.isArray(ask) && ask.length >= 2) {
+                return [String(ask[0]), String(ask[1])]
+              } else if (typeof ask === "object" && ask !== null) {
+                return [String(ask.price || ask[0] || "0"), String(ask.size || ask[1] || "0")]
+              }
+              return ["0", "0"]
+            })
+
+            const orderbookData = processOrderbook(formattedBids, formattedAsks)
+
+            if (assetId === yesTokenId) {
+              setYesOrderbook(orderbookData)
+            } else if (assetId === noTokenId) {
+              setNoOrderbook(orderbookData)
+            }
+          }
+        }
+
+        // Handle price_change events (incremental updates)
+        if (data.event_type === "price_change" && data.price_changes && Array.isArray(data.price_changes)) {
+          data.price_changes.forEach((change: any) => {
+            const assetId = change.asset_id
+            const price = change.price
+            const size = change.size
+            const side = change.side
+
+            if (!assetId || !price || !side) return
+
+            // Determine which orderbook to update
+            if (assetId === yesTokenId) {
+              setYesOrderbook((prev) => applyPriceChange(prev, price, size, side))
+            } else if (assetId === noTokenId) {
+              setNoOrderbook((prev) => applyPriceChange(prev, price, size, side))
             }
           })
+        }
+        // Handle array format: [{ asset_id, bids, asks, event_type, ... }, ...]
+        else if (Array.isArray(data)) {
+          data.forEach((item) => {
+            processBookEvent(item)
+          })
+        }
+        // Handle single object book event: { asset_id, bids, asks, event_type: "book", ... }
+        else if (data.event_type === "book" && data.asset_id) {
+          processBookEvent(data)
         }
         // Handle different message formats (legacy support)
         // Format 1: { channel: "orderbook", data: { bids: [...], asks: [...] }, token_id: "..." }
@@ -437,7 +532,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
               <div className="relative z-10 flex w-full items-center justify-between gap-2 whitespace-nowrap">
                 {ask ? (
                   <>
-                    <span className="text-red-500">{ask.price.toFixed(2)}</span>
+                    <span className="text-red-500">{ask.price.toFixed(3)}</span>
                     <span className="text-muted-foreground">{ask.size}</span>
                     <span className="text-muted-foreground">{ask.total}</span>
                   </>
@@ -476,7 +571,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
               <div className="relative z-10 flex w-full items-center justify-between gap-2 whitespace-nowrap">
                 {bid ? (
                   <>
-                    <span className="text-green-500">{bid.price.toFixed(2)}</span>
+                    <span className="text-green-500">{bid.price.toFixed(3)}</span>
                     <span className="text-muted-foreground">{bid.size}</span>
                     <span className="text-muted-foreground">{bid.total}</span>
                   </>

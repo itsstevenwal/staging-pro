@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { Copy, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLogs } from "@/lib/log-context"
+import { useLocalStorage } from "@/lib/use-local-storage"
 import {
   useReactTable,
   getCoreRowModel,
@@ -154,6 +155,7 @@ interface TradeTicketProps {
   defaultClobApiKey?: string
   defaultClobSecret?: string
   defaultClobPassPhrase?: string
+  storageKey?: string // Optional key to differentiate multiple TradeTicket instances
 }
 
 export function TradeTicket({
@@ -162,13 +164,14 @@ export function TradeTicket({
   defaultClobApiKey = "b349bff6-7af8-0470-ed25-22a2a5e1c154",
   defaultClobSecret = "qXRtb5OefyuZdv9A4lZ3JAaoBn1-JTZJ7KKQ63jstqY=",
   defaultClobPassPhrase = "2cd4e53cbde7caf0771a5ea0669c2b67f7fa962d5d8c8c241564fd7ece626ade",
+  storageKey = "tradeticket",
 }: TradeTicketProps = {}) {
   const { addLog } = useLogs()
-  const [orderType, setOrderType] = useState<OrderType>("buy")
-  const [orderSide, setOrderSide] = useState<OrderSide>("yes")
+  const [orderType, setOrderType] = useLocalStorage<OrderType>(`${storageKey}_orderType`, "buy")
+  const [orderSide, setOrderSide] = useLocalStorage<OrderSide>(`${storageKey}_orderSide`, "yes")
   const [price, setPrice] = useState("")
   const [size, setSize] = useState("")
-  const [tif, setTif] = useState<TimeInForce>("GTC")
+  const [tif, setTif] = useLocalStorage<TimeInForce>(`${storageKey}_tif`, "GTC")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orders, setOrders] = useState<Order[]>([
     {
@@ -224,11 +227,11 @@ export function TradeTicket({
   ])
 
   // Trade settings
-  const [address, setAddress] = useState<string>(defaultAddress)
-  const [pk, setPk] = useState<string>(defaultPk)
-  const [clobApiKey, setClobApiKey] = useState<string>(defaultClobApiKey)
-  const [clobSecret, setClobSecret] = useState<string>(defaultClobSecret)
-  const [clobPassPhrase, setClobPassPhrase] = useState<string>(defaultClobPassPhrase)
+  const [address, setAddress] = useLocalStorage<string>(`${storageKey}_address`, defaultAddress)
+  const [pk, setPk] = useLocalStorage<string>(`${storageKey}_pk`, defaultPk)
+  const [clobApiKey, setClobApiKey] = useLocalStorage<string>(`${storageKey}_clobApiKey`, defaultClobApiKey)
+  const [clobSecret, setClobSecret] = useLocalStorage<string>(`${storageKey}_clobSecret`, defaultClobSecret)
+  const [clobPassPhrase, setClobPassPhrase] = useLocalStorage<string>(`${storageKey}_clobPassPhrase`, defaultClobPassPhrase)
 
   // Visibility states for hidden fields
   const [showPk, setShowPk] = useState(false)

@@ -82,3 +82,27 @@
     font-family: Menlo, Monaco, "Courier New", monospace;
   }
 }
+
+/* Custom scrollbar styling for logs */
+.logs-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logs-scrollbar::-webkit-scrollbar-track {
+  background: black;
+}
+
+.logs-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.logs-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Firefox scrollbar styling */
+.logs-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) black;
+}

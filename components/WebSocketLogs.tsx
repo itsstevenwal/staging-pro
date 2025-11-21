@@ -1,72 +1,13 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { Download } from "lucide-react"
 import { useLogs, LogType } from "@/lib/log-context"
 import { Button } from "@/components/ui/button"
 
-interface WebSocketLogsProps {
-    wsUrl: string
-}
-
-export function WebSocketLogs({ wsUrl }: WebSocketLogsProps) {
-    const { logs, addLog } = useLogs()
-    const [isConnected, setIsConnected] = useState(false)
-    const wsRef = useRef<WebSocket | null>(null)
+export function WebSocketLogs() {
+    const { logs } = useLogs()
     const logsEndRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        // Close existing connection if URL changes
-        if (wsRef.current) {
-            wsRef.current.close()
-            wsRef.current = null
-        }
-
-        // Initialize WebSocket connection
-        const connectWebSocket = () => {
-            if (!wsUrl || wsUrl.trim() === "") {
-                addLog("WebSocket URL is empty", "error")
-                return
-            }
-
-            try {
-                const ws = new WebSocket(wsUrl)
-
-                ws.onopen = () => {
-                    setIsConnected(true)
-                    addLog("Connected to WebSocket", "connection")
-                }
-
-                ws.onmessage = event => {
-                    addLog(`Received: ${event.data}`, "message")
-                }
-
-                ws.onerror = error => {
-                    addLog(`WebSocket error: ${error}`, "error")
-                }
-
-                ws.onclose = () => {
-                    setIsConnected(false)
-                    addLog("WebSocket connection closed", "connection")
-                    // Attempt to reconnect after 3 seconds
-                    setTimeout(connectWebSocket, 3000)
-                }
-
-                wsRef.current = ws
-            } catch (error) {
-                addLog(`Failed to connect: ${error}`, "error")
-            }
-        }
-
-        connectWebSocket()
-
-        // Cleanup on unmount
-        return () => {
-            if (wsRef.current) {
-                wsRef.current.close()
-            }
-        }
-    }, [wsUrl, addLog])
 
     useEffect(() => {
         // Auto-scroll to bottom when new logs arrive
@@ -126,22 +67,11 @@ export function WebSocketLogs({ wsUrl }: WebSocketLogsProps) {
                         <Download className="h-3 w-3" />
                     </Button>
                 </div>
-
-                <div className="flex items-center gap-1">
-                    <div
-                        className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
-                            }`}
-                    />
-                    <span className="text-[10px] text-muted-foreground">
-                        {isConnected ? "Connected" : "Disconnected"}
-                    </span>
-
-                </div>
             </div>
-            <div className="flex-1 overflow-auto p-1 font-mono text-xs min-h-0">
+            <div className="logs-scrollbar flex-1 overflow-y-auto overflow-x-hidden p-1 font-mono text-[10px] min-h-0">
                 {logs.length === 0 ? (
-                    <div className="text-center text-muted-foreground text-xs">
-                        Waiting for WebSocket messages...
+                    <div className="text-center text-muted-foreground text-[10px]">
+                        No logs yet
                     </div>
                 ) : (
                     <div className="space-y-0.5">
@@ -150,10 +80,10 @@ export function WebSocketLogs({ wsUrl }: WebSocketLogsProps) {
                                 key={log.id}
                                 className={`flex items-start gap-1 ${getLogColor(log.type)}`}
                             >
-                                <span className="text-muted-foreground whitespace-nowrap text-xs leading-tight">
+                                <span className="text-muted-foreground whitespace-nowrap text-[10px] leading-tight flex-shrink-0">
                                     {log.timestamp.toLocaleTimeString()}
                                 </span>
-                                <pre className="flex-1 break-words whitespace-pre-wrap font-mono text-xs leading-tight">
+                                <pre className="flex-1 break-words whitespace-pre-wrap font-mono text-[10px] leading-tight overflow-wrap-anywhere min-w-0">
                                     {log.message}
                                 </pre>
                             </div>

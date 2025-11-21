@@ -107,29 +107,29 @@ export function TradeTicket({
   }
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-white/30 bg-black">
+    <div className="flex h-full flex-col rounded-sm border border-white/30 bg-black">
       <div className="border-b border-white/30">
-        <div className="px-2 py-1">
-          <h2>trade</h2>
+        <div className="px-1 py-0.5">
+          <h2 className="text-xs">trade</h2>
         </div>
-        <div className="px-2 py-2 space-y-2 border-t border-white/30">
+        <div className="px-1 py-1 space-y-1 border-t border-white/30">
           <div className="flex items-center gap-1">
-            <label className="text-xs text-muted-foreground whitespace-nowrap w-13">ACC</label>
+            <label className="text-[10px] text-muted-foreground whitespace-nowrap w-13">ACC</label>
             <input
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              className="flex-1 px-2 py-1 text-sm bg-black border border-white/30 rounded focus:outline-none focus:border-white/50"
+              className="flex-1 px-1 py-0.5 text-xs bg-black border border-white/30 rounded-sm focus:outline-none focus:border-white/50"
             />
             <button
               onClick={() => copyToClipboard(address)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              <Copy className="w-3 h-3" />
+              <Copy className="w-2.5 h-2.5" />
             </button>
           </div>
           <div className="flex items-center gap-1">
-            <label className="text-xs text-muted-foreground whitespace-nowrap w-13">PK</label>
+            <label className="text-[10px] text-muted-foreground whitespace-nowrap w-13">PK</label>
             <input
               type="text"
               value={showPk ? pk : "****"}
@@ -139,23 +139,23 @@ export function TradeTicket({
                 }
               }}
               onFocus={() => setShowPk(true)}
-              className="flex-1 px-2 py-1 text-sm bg-black border border-white/30 rounded focus:outline-none focus:border-white/50"
+              className="flex-1 px-1 py-0.5 text-xs bg-black border border-white/30 rounded-sm focus:outline-none focus:border-white/50"
             />
             <button
               onClick={() => setShowPk(!showPk)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              {showPk ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              {showPk ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </button>
             <button
               onClick={() => copyToClipboard(pk)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              <Copy className="w-3 h-3" />
+              <Copy className="w-2.5 h-2.5" />
             </button>
           </div>
           <div className="flex items-center gap-1">
-            <label className="text-xs text-muted-foreground whitespace-nowrap w-13">KEY</label>
+            <label className="text-[10px] text-muted-foreground whitespace-nowrap w-13">KEY</label>
             <input
               type="text"
               value={showClobApiKey ? clobApiKey : "****"}
@@ -165,23 +165,23 @@ export function TradeTicket({
                 }
               }}
               onFocus={() => setShowClobApiKey(true)}
-              className="flex-1 px-2 py-1 text-sm bg-black border border-white/30 rounded focus:outline-none focus:border-white/50"
+              className="flex-1 px-1 py-0.5 text-xs bg-black border border-white/30 rounded-sm focus:outline-none focus:border-white/50"
             />
             <button
               onClick={() => setShowClobApiKey(!showClobApiKey)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 ettransition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              {showClobApiKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              {showClobApiKey ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </button>
             <button
               onClick={() => copyToClipboard(clobApiKey)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              <Copy className="w-3 h-3" />
+              <Copy className="w-2.5 h-2.5" />
             </button>
           </div>
           <div className="flex items-center gap-1">
-            <label className="text-xs text-muted-foreground whitespace-nowrap w-13">SECRET</label>
+            <label className="text-[10px] text-muted-foreground whitespace-nowrap w-13">SECRET</label>
             <input
               type="text"
               value={showClobSecret ? clobSecret : "****"}
@@ -191,23 +191,23 @@ export function TradeTicket({
                 }
               }}
               onFocus={() => setShowClobSecret(true)}
-              className="flex-1 px-2 py-1 text-sm bg-black border border-white/30 rounded focus:outline-none focus:border-white/50"
+              className="flex-1 px-1 py-0.5 text-xs bg-black border border-white/30 rounded-sm focus:outline-none focus:border-white/50"
             />
             <button
               onClick={() => setShowClobSecret(!showClobSecret)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              {showClobSecret ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              {showClobSecret ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </button>
             <button
               onClick={() => copyToClipboard(clobSecret)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              <Copy className="w-3 h-3" />
+              <Copy className="w-2.5 h-2.5" />
             </button>
           </div>
           <div className="flex items-center gap-1">
-            <label className="text-xs text-muted-foreground whitespace-nowrap w-13">PASS</label>
+            <label className="text-[10px] text-muted-foreground whitespace-nowrap w-13">PASS</label>
             <input
               type="text"
               value={showClobPassPhrase ? clobPassPhrase : "****"}
@@ -217,30 +217,30 @@ export function TradeTicket({
                 }
               }}
               onFocus={() => setShowClobPassPhrase(true)}
-              className="flex-1 px-2 py-1 text-sm bg-black border border-white/30 rounded focus:outline-none focus:border-white/50"
+              className="flex-1 px-1 py-0.5 text-xs bg-black border border-white/30 rounded-sm focus:outline-none focus:border-white/50"
             />
             <button
               onClick={() => setShowClobPassPhrase(!showClobPassPhrase)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              {showClobPassPhrase ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              {showClobPassPhrase ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </button>
             <button
               onClick={() => copyToClipboard(clobPassPhrase)}
-              className="p-1 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
             >
-              <Copy className="w-3 h-3" />
+              <Copy className="w-2.5 h-2.5" />
             </button>
           </div>
         </div>
       </div>
-      <form onSubmit={handleSubmit} className="flex flex-1 flex-col p-2">
+      <form onSubmit={handleSubmit} className="flex flex-1 flex-col p-1">
         {/* Order Type Toggle */}
-        <div className="mb-2 flex gap-2">
+        <div className="mb-1 flex gap-1">
           <Button
             type="button"
             variant={orderType === "buy" ? "default" : "outline"}
-            className="flex-1 bg-black"
+            className="flex-1 bg-black text-xs py-1 h-7"
             onClick={() => setOrderType("buy")}
           >
             Buy
@@ -248,7 +248,7 @@ export function TradeTicket({
           <Button
             type="button"
             variant={orderType === "sell" ? "default" : "outline"}
-            className="flex-1 bg-black"
+            className="flex-1 bg-black text-xs py-1 h-7"
             onClick={() => setOrderType("sell")}
           >
             Sell
@@ -256,11 +256,11 @@ export function TradeTicket({
         </div>
 
         {/* Side Selection */}
-        <div className="mb-2 flex gap-2">
+        <div className="mb-1 flex gap-1">
           <Button
             type="button"
             variant={orderSide === "yes" ? "default" : "outline"}
-            className="flex-1 bg-black"
+            className="flex-1 bg-black text-xs py-1 h-7"
             onClick={() => setOrderSide("yes")}
           >
             Yes
@@ -268,7 +268,7 @@ export function TradeTicket({
           <Button
             type="button"
             variant={orderSide === "no" ? "default" : "outline"}
-            className="flex-1 bg-black"
+            className="flex-1 bg-black text-xs py-1 h-7"
             onClick={() => setOrderSide("no")}
           >
             No
@@ -276,10 +276,10 @@ export function TradeTicket({
         </div>
 
         {/* Price Input */}
-        <div className="mb-2">
+        <div className="mb-1">
           <label
             htmlFor="price"
-            className="mb-1 block text-sm font-medium text-foreground"
+            className="mb-0.5 block text-xs font-medium text-foreground"
           >
             Price
           </label>
@@ -291,17 +291,17 @@ export function TradeTicket({
             max="1"
             value={price}
             onChange={e => setPrice(e.target.value)}
-            className="w-full rounded-md border border-white/30 bg-black px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="w-full rounded-sm border border-white/30 bg-black px-1 py-0.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             placeholder="0.00"
             required
           />
         </div>
 
         {/* Size Input */}
-        <div className="mb-2">
+        <div className="mb-1">
           <label
             htmlFor="size"
-            className="mb-1 block text-sm font-medium text-foreground"
+            className="mb-0.5 block text-xs font-medium text-foreground"
           >
             Size
           </label>
@@ -312,17 +312,17 @@ export function TradeTicket({
             min="0"
             value={size}
             onChange={e => setSize(e.target.value)}
-            className="w-full rounded-md border border-white/30 bg-black px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="w-full rounded-sm border border-white/30 bg-black px-1 py-0.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             placeholder="0.00"
             required
           />
         </div>
 
         {/* TIF (Time In Force) */}
-        <div className="mb-2">
+        <div className="mb-1">
           <label
             htmlFor="tif"
-            className="mb-1 block text-sm font-medium text-foreground"
+            className="mb-0.5 block text-xs font-medium text-foreground"
           >
             TIF
           </label>
@@ -330,7 +330,7 @@ export function TradeTicket({
             id="tif"
             value={tif}
             onChange={e => setTif(e.target.value as TimeInForce)}
-            className="w-full rounded-md border border-white/30 bg-black px-2 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="w-full rounded-sm border border-white/30 bg-black px-1 py-0.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <option value="GTC">GTC (Good Till Cancel)</option>
             <option value="IOC">IOC (Immediate Or Cancel)</option>
@@ -341,7 +341,7 @@ export function TradeTicket({
         {/* Submit Button */}
         <Button
           type="submit"
-          className="mb-2 w-full bg-black"
+          className="mb-1 w-full bg-black text-xs py-1 h-7"
           disabled={isSubmitting || !price || !size}
         >
           {isSubmitting
@@ -351,8 +351,8 @@ export function TradeTicket({
 
         {/* Total */}
         {price && size && (
-          <div className="mb-2 rounded-md bg-black border border-white/30 p-2">
-            <div className="flex justify-between text-sm">
+          <div className="mb-1 rounded-sm bg-black border border-white/30 p-1">
+            <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Total:</span>
               <span className="font-medium">
                 {(parseFloat(price) * parseFloat(size)).toFixed(2)}

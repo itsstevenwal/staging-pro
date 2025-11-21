@@ -18,44 +18,44 @@ export default function Home() {
 
   return (
     <div className="flex h-screen flex-col bg-black">
-      <header className="border-b border-white/30 px-2 py-2 flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-lg font-italic font-bold">sp</h1>
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground whitespace-nowrap">Chain ID:</label>
+      <header className="border-b border-white/30 px-1 py-1 flex items-center justify-between gap-2 flex-wrap">
+        <h1 className="text-sm font-italic font-bold">sp</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            <label className="text-[10px] text-muted-foreground whitespace-nowrap">Chain ID:</label>
             <input
               type="text"
               value={chainId}
               onChange={(e) => setChainId(e.target.value)}
-              className="w-24 px-2 py-1 text-sm bg-black border border-white/30 rounded focus:outline-none focus:border-white/50"
+              className="w-20 px-1 py-0.5 text-xs bg-black border border-white/30 rounded-sm focus:outline-none focus:border-white/50"
               placeholder="1"
             />
           </div>
-          <div className="flex items-center gap-2 max-w-md">
-            <label className="text-xs text-muted-foreground whitespace-nowrap">HTTP:</label>
+          <div className="flex items-center gap-1 max-w-md">
+            <label className="text-[10px] text-muted-foreground whitespace-nowrap">HTTP:</label>
             <input
               type="text"
               value={httpUrl}
               onChange={(e) => setHttpUrl(e.target.value)}
-              className="w-64 px-2 py-1 text-sm bg-black border border-white/30 rounded focus:outline-none focus:border-white/50"
+              className="w-48 px-1 py-0.5 text-xs bg-black border border-white/30 rounded-sm focus:outline-none focus:border-white/50"
               placeholder="https://..."
             />
           </div>
-          <div className="flex items-center gap-2 max-w-md">
-            <label className="text-xs text-muted-foreground whitespace-nowrap">WS:</label>
+          <div className="flex items-center gap-1 max-w-md">
+            <label className="text-[10px] text-muted-foreground whitespace-nowrap">WS:</label>
             <input
               type="text"
               value={wsUrl}
               onChange={(e) => setWsUrl(e.target.value)}
-              className="w-64 px-2 py-1 text-sm bg-black border border-white/30 rounded focus:outline-none focus:border-white/50"
+              className="w-48 px-1 py-0.5 text-xs bg-black border border-white/30 rounded-sm focus:outline-none focus:border-white/50"
               placeholder="wss://..."
             />
           </div>
         </div>
       </header>
-      <main className="grid grid-cols-[4fr_3fr_3fr] flex-1 gap-2 overflow-hidden p-2">
+      <main className="grid grid-cols-[4fr_3fr_3fr] flex-1 gap-1 overflow-hidden p-1">
         {/* First Column - Orderbook and Logs (4 parts) */}
-        <div className="flex flex-col gap-2 min-h-0 min-w-0">
+        <div className="flex flex-col gap-1 min-h-0 min-w-0">
           <div className="flex-shrink-0">
             <Orderbook />
           </div>

@@ -87,35 +87,35 @@ export function WebSocketLogs({ wsUrl }: WebSocketLogsProps) {
     }
 
     return (
-        <div className="flex h-full flex-col rounded-lg border border-white/30 bg-black min-h-0">
-            <div className="flex items-center justify-between border-b border-white/30 px-2 py-1 flex-shrink-0">
-                <h2>logs</h2>
-                <div className="flex items-center gap-2">
+        <div className="flex h-full flex-col rounded-sm border border-white/30 bg-black min-h-0">
+            <div className="flex items-center justify-between border-b border-white/30 px-1 py-0.5 flex-shrink-0">
+                <h2 className="text-xs">logs</h2>
+                <div className="flex items-center gap-1">
                     <div
-                        className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
+                        className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"
                             }`}
                     />
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[10px] text-muted-foreground">
                         {isConnected ? "Connected" : "Disconnected"}
                     </span>
                 </div>
             </div>
-            <div className="flex-1 overflow-auto p-2 font-mono text-xs min-h-0">
+            <div className="flex-1 overflow-auto p-1 font-mono text-xs min-h-0">
                 {logs.length === 0 ? (
-                    <div className="text-center text-muted-foreground">
+                    <div className="text-center text-muted-foreground text-xs">
                         Waiting for WebSocket messages...
                     </div>
                 ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-0.5">
                         {logs.map(log => (
                             <div
                                 key={log.id}
-                                className={`flex gap-2 ${getLogColor(log.type)}`}
+                                className={`flex items-start gap-1 ${getLogColor(log.type)}`}
                             >
-                                <span className="text-muted-foreground whitespace-nowrap">
+                                <span className="text-muted-foreground whitespace-nowrap text-xs leading-tight">
                                     {log.timestamp.toLocaleTimeString()}
                                 </span>
-                                <pre className="flex-1 break-words whitespace-pre-wrap font-mono text-xs">
+                                <pre className="flex-1 break-words whitespace-pre-wrap font-mono text-xs leading-tight">
                                     {log.message}
                                 </pre>
                             </div>

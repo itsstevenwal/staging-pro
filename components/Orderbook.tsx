@@ -71,15 +71,26 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
 
   const wsRef = useRef<WebSocket | null>(null)
   const clobClientRef = useRef<ClobClient | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const reconnectAttemptRef = useRef(0)
+  const shouldReconnectRef = useRef(true)
   const [isConnected, setIsConnected] = useState(false)
+  const [reconnectKey, setReconnectKey] = useState(0)
 
   // Initialize ClobClient and WebSocket connection
   useEffect(() => {
     // const host = process.env.NEXT_PUBLIC_HTTP_URL || "https://clob.polymarket.com"
     // clobClientRef.current = new ClobClient(host)
 
+    // Clear any existing reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+
     // Close existing connection if URL changes
     if (wsRef.current) {
+      shouldReconnectRef.current = false // Prevent reconnection from old connection
       wsRef.current.close()
       wsRef.current = null
     }
@@ -95,9 +106,14 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
     const marketWsUrl = wsUrl.endsWith('/') ? `${wsUrl}ws/market` : `${wsUrl}/ws/market`
     const ws = new WebSocket(marketWsUrl)
 
+    // Enable reconnection for this new connection
+    shouldReconnectRef.current = true
+
     ws.onopen = () => {
       addLog(`WebSocket connected for orderbook updates: ${marketWsUrl}`, "connection")
       setIsConnected(true)
+      reconnectAttemptRef.current = 0 // Reset reconnect attempts on successful connection
+      shouldReconnectRef.current = true
 
       // Subscribe to market channel with asset IDs
       const MARKET_CHANNEL = "market"
@@ -350,20 +366,41 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
       setIsConnected(false)
     }
 
-    ws.onclose = () => {
-      addLog("WebSocket closed, attempting to reconnect...", "connection")
+    ws.onclose = (event) => {
+      addLog(`WebSocket closed (code: ${event.code}, reason: ${event.reason || 'none'})`, "connection")
       setIsConnected(false)
-      // Attempt to reconnect after 3 seconds
-      setTimeout(() => {
-        if (wsRef.current?.readyState === WebSocket.CLOSED) {
-          // Reconnection will be handled by the effect
-        }
-      }, 3000)
+
+      // Only attempt reconnection if we should reconnect and the connection wasn't manually closed
+      if (shouldReconnectRef.current && event.code !== 1000) {
+        reconnectAttemptRef.current += 1
+        // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current - 1), 30000)
+
+        addLog(`Attempting to reconnect in ${delay / 1000}s (attempt ${reconnectAttemptRef.current})...`, "connection")
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (shouldReconnectRef.current && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
+            // Trigger reconnection by updating reconnectKey, which will cause the effect to re-run
+            setReconnectKey(prev => prev + 1)
+          }
+        }, delay)
+      } else {
+        addLog("WebSocket reconnection disabled (manual close or component unmounting)", "connection")
+      }
     }
 
     wsRef.current = ws
 
     return () => {
+      // Clear reconnect timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+        reconnectTimeoutRef.current = null
+      }
+
+      // Disable reconnection on cleanup
+      shouldReconnectRef.current = false
+
       if (wsRef.current) {
         // Unsubscribe before closing if connection is open
         if (wsRef.current.readyState === WebSocket.OPEN) {
@@ -392,7 +429,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
         wsRef.current = null
       }
     }
-  }, [yesTokenId, noTokenId, wsUrl, addLog])
+  }, [yesTokenId, noTokenId, wsUrl, addLog, reconnectKey])
 
   // Resubscribe when token IDs change
   useEffect(() => {

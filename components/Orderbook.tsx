@@ -75,8 +75,8 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
 
   // Initialize ClobClient and WebSocket connection
   useEffect(() => {
-    const host = process.env.NEXT_PUBLIC_HTTP_URL || "https://clob.polymarket.com"
-    clobClientRef.current = new ClobClient(host)
+    // const host = process.env.NEXT_PUBLIC_HTTP_URL || "https://clob.polymarket.com"
+    // clobClientRef.current = new ClobClient(host)
 
     // Close existing connection if URL changes
     if (wsRef.current) {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { Copy, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLogs } from "@/lib/log-context"
@@ -11,10 +11,12 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
+import { ClobClient, Side, OrderType as ClobOrderType } from "@polymarket/clob-client"
+import { Wallet } from "@ethersproject/wallet"
 
 type OrderType = "buy" | "sell"
 type OrderSide = "yes" | "no"
-type TimeInForce = "GTC" | "IOC" | "FOK"
+type TimeInForce = "GTC" | "FOK" | "FAK" | "GTD"
 
 interface Order {
   id: string
@@ -149,6 +151,7 @@ function OrdersTable({ orders }: OrdersTableProps) {
   )
 }
 
+
 interface TradeTicketProps {
   defaultAddress?: string
   defaultPk?: string
@@ -173,7 +176,7 @@ export function TradeTicket({
   const [size, setSize] = useState("")
   const [tif, setTif] = useLocalStorage<TimeInForce>(`${storageKey}_tif`, "GTC")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [orders, setOrders] = useState<Order[]>([
+  const [orders] = useState<Order[]>([
     {
       id: "order_1",
       type: "buy",
@@ -190,7 +193,7 @@ export function TradeTicket({
       side: "no",
       price: 0.35,
       size: 150,
-      tif: "IOC",
+      tif: "FAK",
       timestamp: new Date(Date.now() - 180000).toISOString(),
       status: "placed",
     },
@@ -233,11 +236,61 @@ export function TradeTicket({
   const [clobSecret, setClobSecret] = useLocalStorage<string>(`${storageKey}_clobSecret`, defaultClobSecret)
   const [clobPassPhrase, setClobPassPhrase] = useLocalStorage<string>(`${storageKey}_clobPassPhrase`, defaultClobPassPhrase)
 
+  // Get token IDs from orderbook localStorage
+  const yesTokenId = useLocalStorage<string>("orderbook_yesTokenId", "71321045679252212594626385532706912750332728571942532289631379312455583992563")[0]
+  const noTokenId = useLocalStorage<string>("orderbook_noTokenId", "52114319501245915516055106046884209969926127482827954674443846427813813222426")[0]
+
+  // Hardcoded market parameters
+  const tickSize = "0.01"
+  const negRisk = false
+  const signatureType = 0 // Browser Wallet
+
   // Visibility states for hidden fields
   const [showPk, setShowPk] = useState(false)
   const [showClobApiKey, setShowClobApiKey] = useState(false)
   const [showClobSecret, setShowClobSecret] = useState(false)
   const [showClobPassPhrase, setShowClobPassPhrase] = useState(false)
+
+  // Get host and chainId from localStorage or defaults
+  const host = useMemo(() => {
+    if (typeof window === "undefined") return "https://clob-staging.polymarket.com"
+    return localStorage.getItem("config_httpUrl") || process.env.NEXT_PUBLIC_HTTP_URL || "https://clob-staging.polymarket.com"
+  }, [])
+
+  console.log("host", host)
+
+  const chainId = useMemo(() => {
+    if (typeof window === "undefined") return 137
+    return parseInt(localStorage.getItem("config_chainId") || process.env.NEXT_PUBLIC_CHAIN_ID || "137")
+  }, [])
+
+  // Create CLOB client instance
+  const clobClient = useMemo(() => {
+    if (!pk || !address || !clobApiKey || !clobSecret || !clobPassPhrase) {
+      return null
+    }
+
+    try {
+      const wallet = new Wallet(pk)
+      const creds = {
+        key: clobApiKey,
+        secret: clobSecret,
+        passphrase: clobPassPhrase,
+      }
+
+      return new ClobClient(
+        host,
+        chainId as any,
+        wallet,
+        creds,
+        signatureType,
+        address
+      )
+    } catch (error) {
+      addLog(`Error creating CLOB client: ${error instanceof Error ? error.message : String(error)}`, "error")
+      return null
+    }
+  }, [pk, address, clobApiKey, clobSecret, clobPassPhrase, host, chainId, signatureType, addLog])
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -251,61 +304,131 @@ export function TradeTicket({
     e.preventDefault()
     setIsSubmitting(true)
 
+    // Get token ID based on side
+    const tokenID = orderSide === "yes" ? yesTokenId : noTokenId
+
+    if (!tokenID) {
+      addLog(
+        `Error: Token ID not found for ${orderSide} side. Please set token IDs in the orderbook.`,
+        "error"
+      )
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!pk || !address) {
+      addLog(
+        `Error: Private key and funder address are required.`,
+        "error"
+      )
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!clobClient) {
+      addLog(
+        `Error: CLOB client not initialized. Please check your credentials.`,
+        "error"
+      )
+      setIsSubmitting(false)
+      return
+    }
+
+    // Log order details (without sensitive data)
     const orderData = {
       type: orderType,
       side: orderSide,
       price: parseFloat(price),
       size: parseFloat(size),
       tif,
+      tokenID,
+      tickSize,
+      negRisk,
+      signatureType,
+      host,
+      chainId,
     }
-
-    // Log API request
-    const requestBody = JSON.stringify(orderData)
     addLog(
-      `API Request: POST /api/orders\n${requestBody}`,
+      `Placing order: ${JSON.stringify(orderData, null, 2)}`,
       "api-request"
     )
 
     try {
-      // Make API call
-      const response = await fetch("/api/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: requestBody,
-      })
+      // Map order type to CLOB Side enum
+      const clobSide = orderType === "buy" ? Side.BUY : Side.SELL
 
-      const responseData = await response.json()
+      // Determine if this is a market order (FOK/FAK) or limit order (GTC/GTD)
+      const isMarketOrder = tif === "FOK" || tif === "FAK"
+
+      let response: any
+
+      if (isMarketOrder) {
+        // Market orders use createAndPostMarketOrder
+        const clobOrderType = tif === "FOK" ? ClobOrderType.FOK : ClobOrderType.FAK
+
+        const userMarketOrder = {
+          tokenID,
+          price: parseFloat(price), // Optional for market orders
+          amount: parseFloat(size), // For BUY: $$$ amount, for SELL: shares
+          side: clobSide,
+        }
+
+        addLog(
+          `Creating market order with CLOB client: ${JSON.stringify(userMarketOrder, null, 2)}`,
+          "api-request"
+        )
+
+        response = await clobClient.createAndPostMarketOrder(
+          userMarketOrder,
+          {
+            tickSize: "0.01",
+            negRisk: false,
+          },
+          clobOrderType,
+          false // deferExec
+        )
+      } else {
+        // Limit orders use createAndPostOrder
+        const clobOrderType = tif === "GTD" ? ClobOrderType.GTD : ClobOrderType.GTC
+
+        const userOrder = {
+          tokenID,
+          price: parseFloat(price),
+          size: parseFloat(size),
+          side: clobSide,
+        }
+
+        addLog(
+          `Creating limit order with CLOB client: ${JSON.stringify(userOrder, null, 2)}`,
+          "api-request"
+        )
+
+        response = await clobClient.createAndPostOrder(
+          userOrder,
+          {
+            tickSize: "0.01",
+            negRisk: false,
+          },
+          clobOrderType,
+          false // deferExec
+        )
+      }
 
       // Log API response
       addLog(
-        `API Response: ${response.status} ${response.statusText}\n${JSON.stringify(responseData, null, 2)}`,
-        response.ok ? "api-response" : "error"
+        `Order Response: ${JSON.stringify(response, null, 2)}`,
+        "api-response"
       )
 
-      if (!response.ok) {
-        throw new Error(responseData.error || "Failed to place order")
-      }
-
-      // Add order to list if successful
-      if (response.ok && responseData.order) {
-        setOrders(prev => [{
-          id: responseData.orderId || `order_${Date.now()}`,
-          type: orderType,
-          side: orderSide,
-          price: parseFloat(price),
-          size: parseFloat(size),
-          tif,
-          timestamp: responseData.order.timestamp || new Date().toISOString(),
-          status: "placed"
-        }, ...prev])
-      }
+      addLog(`Order placed successfully: ${response?.order_id || "unknown"}`, "api-response")
     } catch (error) {
       addLog(
-        `API Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Order Error: ${error instanceof Error ? error.message : String(error)}`,
         "error"
       )
+      if (error instanceof Error && error.stack) {
+        addLog(`Stack trace: ${error.stack}`, "error")
+      }
     }
 
     setIsSubmitting(false)

@@ -16,11 +16,11 @@ export default function Home() {
   )
   const [httpUrl, setHttpUrl] = useLocalStorage<string>(
     "config_httpUrl",
-    process.env.NEXT_PUBLIC_HTTP_URL || ""
+    process.env.NEXT_PUBLIC_HTTP_URL || "https://clob-staging.polymarket.com"
   )
   const [chainId, setChainId] = useLocalStorage<string>(
     "config_chainId",
-    process.env.NEXT_PUBLIC_CHAIN_ID || ""
+    process.env.NEXT_PUBLIC_CHAIN_ID || "80002"
   )
 
   const handleReset = () => {

@@ -315,7 +315,13 @@ export function TradeTicket({
     }
 
     try {
+      const startTime = performance.now()
       const openOrders = await clobClient.getOpenOrders()
+      const endTime = performance.now()
+      const latency = endTime - startTime
+
+      // Log latency
+      addLog(`getOpenOrders latency: ${latency.toFixed(2)}ms`, "api-request")
 
       // Log raw orders from API
       addLog(`Received ${openOrders.length} orders from API: ${JSON.stringify(openOrders, null, 2)}`, "message")
@@ -386,7 +392,13 @@ export function TradeTicket({
 
     try {
       addLog(`Canceling order: ${orderId}`, "api-request")
+      const startTime = performance.now()
       const response = await clobClient.cancelOrder({ orderID: orderId })
+      const endTime = performance.now()
+      const latency = endTime - startTime
+
+      // Log latency
+      addLog(`cancelOrder latency: ${latency.toFixed(2)}ms`, "api-request")
       addLog(`Order canceled: ${JSON.stringify(response, null, 2)}`, "api-response")
       // Refetch orders to update the list
       await fetchOrders()
@@ -412,7 +424,13 @@ export function TradeTicket({
 
     try {
       addLog(`Canceling all ${orders.length} orders`, "api-request")
+      const startTime = performance.now()
       const response = await clobClient.cancelAll()
+      const endTime = performance.now()
+      const latency = endTime - startTime
+
+      // Log latency
+      addLog(`cancelAll latency: ${latency.toFixed(2)}ms`, "api-request")
       addLog(`All orders canceled: ${JSON.stringify(response, null, 2)}`, "api-response")
       // Refetch orders to update the list
       await fetchOrders()
@@ -510,6 +528,7 @@ export function TradeTicket({
           "api-request"
         )
 
+        const startTime = performance.now()
         response = await clobClient.createAndPostMarketOrder(
           userMarketOrder,
           {
@@ -519,6 +538,11 @@ export function TradeTicket({
           clobOrderType,
           false // deferExec
         )
+        const endTime = performance.now()
+        const latency = endTime - startTime
+
+        // Log latency
+        addLog(`createAndPostMarketOrder latency: ${latency.toFixed(2)}ms`, "api-request")
       } else {
         // Limit orders use createAndPostOrder
         const clobOrderType = tif === "GTD" ? ClobOrderType.GTD : ClobOrderType.GTC
@@ -535,6 +559,7 @@ export function TradeTicket({
           "api-request"
         )
 
+        const startTime = performance.now()
         response = await clobClient.createAndPostOrder(
           userOrder,
           {
@@ -544,6 +569,11 @@ export function TradeTicket({
           clobOrderType,
           false // deferExec
         )
+        const endTime = performance.now()
+        const latency = endTime - startTime
+
+        // Log latency
+        addLog(`createAndPostOrder latency: ${latency.toFixed(2)}ms`, "api-request")
       }
 
       // Log API response

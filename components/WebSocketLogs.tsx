@@ -1,16 +1,10 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-
-interface LogEntry {
-    id: string
-    timestamp: Date
-    message: string
-    type: "message" | "error" | "connection"
-}
+import { useLogs, LogType } from "@/lib/log-context"
 
 export function WebSocketLogs() {
-    const [logs, setLogs] = useState<LogEntry[]>([])
+    const { logs, addLog } = useLogs()
     const [isConnected, setIsConnected] = useState(false)
     const wsRef = useRef<WebSocket | null>(null)
     const logsEndRef = useRef<HTMLDivElement>(null)
@@ -57,29 +51,23 @@ export function WebSocketLogs() {
                 wsRef.current.close()
             }
         }
-    }, [])
-
-    const addLog = (message: string, type: LogEntry["type"]) => {
-        const logEntry: LogEntry = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            timestamp: new Date(),
-            message,
-            type,
-        }
-        setLogs(prev => [...prev, logEntry].slice(-100)) // Keep last 100 logs
-    }
+    }, [addLog])
 
     useEffect(() => {
         // Auto-scroll to bottom when new logs arrive
         logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }, [logs])
 
-    const getLogColor = (type: LogEntry["type"]) => {
+    const getLogColor = (type: LogType) => {
         switch (type) {
             case "error":
                 return "text-destructive"
             case "connection":
                 return "text-primary"
+            case "api-request":
+                return "text-blue-400"
+            case "api-response":
+                return "text-green-400"
             default:
                 return "text-foreground"
         }
@@ -111,10 +99,12 @@ export function WebSocketLogs() {
                                 key={log.id}
                                 className={`flex gap-2 ${getLogColor(log.type)}`}
                             >
-                                <span className="text-muted-foreground">
+                                <span className="text-muted-foreground whitespace-nowrap">
                                     {log.timestamp.toLocaleTimeString()}
                                 </span>
-                                <span className="flex-1 break-words">{log.message}</span>
+                                <pre className="flex-1 break-words whitespace-pre-wrap font-mono text-xs">
+                                    {log.message}
+                                </pre>
                             </div>
                         ))}
                         <div ref={logsEndRef} />

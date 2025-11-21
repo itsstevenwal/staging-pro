@@ -44,11 +44,11 @@ export function Orderbook() {
               className="relative flex items-center justify-between px-2 py-0.5 text-sm hover:bg-accent"
             >
               <div
-                className="absolute left-0 top-0 h-full bg-destructive/20"
+                className="absolute left-0 top-0 h-full bg-red-500/40"
                 style={{ width: `${(ask.total / maxTotal) * 100}%` }}
               />
               <div className="relative z-10 flex w-full items-center justify-between">
-                <span className="text-destructive">{ask.price.toFixed(2)}</span>
+                <span className="text-red-500">{ask.price.toFixed(2)}</span>
                 <span className="text-muted-foreground">{ask.size}</span>
                 <span className="text-muted-foreground">{ask.total}</span>
               </div>
@@ -71,11 +71,11 @@ export function Orderbook() {
               className="relative flex items-center justify-between px-2 py-0.5 text-sm hover:bg-accent"
             >
               <div
-                className="absolute right-0 top-0 h-full bg-primary/20"
+                className="absolute right-0 top-0 h-full bg-green-500/20"
                 style={{ width: `${(bid.total / maxTotal) * 100}%` }}
               />
               <div className="relative z-10 flex w-full items-center justify-between">
-                <span className="text-primary">{bid.price.toFixed(2)}</span>
+                <span className="text-green-500">{bid.price.toFixed(2)}</span>
                 <span className="text-muted-foreground">{bid.size}</span>
                 <span className="text-muted-foreground">{bid.total}</span>
               </div>

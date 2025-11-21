@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
-import { Copy, Eye, EyeOff } from "lucide-react"
+import { Copy, Eye, EyeOff, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useLogs } from "@/lib/log-context"
 import { useLocalStorage } from "@/lib/use-local-storage"
@@ -31,9 +31,11 @@ interface Order {
 
 interface OrdersTableProps {
   orders: Order[]
+  onCancel: (orderId: string) => Promise<void>
+  onCancelAll: () => Promise<void>
 }
 
-function OrdersTable({ orders }: OrdersTableProps) {
+function OrdersTable({ orders, onCancel, onCancelAll }: OrdersTableProps) {
   const columns = useMemo<ColumnDef<Order>[]>(
     () => [
       {
@@ -84,8 +86,39 @@ function OrdersTable({ orders }: OrdersTableProps) {
           </span>
         ),
       },
+      {
+        id: "actions",
+        header: () => (
+          <div className="flex justify-end">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onCancelAll()
+              }}
+              className="text-[10px] text-red-500 hover:text-red-400 hover:bg-white/10 active:opacity-50 transition-colors rounded px-1 py-0.5 font-medium uppercase"
+              title="Clear all orders"
+            >
+              Clear
+            </button>
+          </div>
+        ),
+        cell: (info) => {
+          const order = info.row.original
+          return (
+            <div className="flex justify-end">
+              <button
+                onClick={() => onCancel(order.id)}
+                className="p-0.5 text-muted-foreground hover:text-white hover:bg-white/10 active:opacity-50 transition-colors rounded"
+                title="Cancel order"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )
+        },
+      },
     ],
-    []
+    [onCancel, onCancelAll]
   )
 
   const table = useReactTable({
@@ -103,24 +136,27 @@ function OrdersTable({ orders }: OrdersTableProps) {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto bg-black orders-scrollbar">
       <table className="w-full text-[11px] min-w-max">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id} className="border-b border-white/30">
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className="px-2 py-1 text-left text-[11px] text-muted-foreground font-medium whitespace-nowrap"
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                      header.column.columnDef.header,
-                      header.getContext()
-                    )}
-                </th>
-              ))}
+              {headerGroup.headers.map((header) => {
+                const isActionsColumn = header.column.id === "actions"
+                return (
+                  <th
+                    key={header.id}
+                    className={`${isActionsColumn ? "px-1 w-20" : "px-2"} py-1 ${isActionsColumn ? "text-right" : "text-left"} text-[11px] text-muted-foreground font-medium whitespace-nowrap`}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                  </th>
+                )
+              })}
             </tr>
           ))}
         </thead>
@@ -130,11 +166,14 @@ function OrdersTable({ orders }: OrdersTableProps) {
               key={row.id}
               className="border-b border-white/10 hover:bg-white/5"
             >
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-2 py-1 whitespace-nowrap">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
+              {row.getVisibleCells().map((cell) => {
+                const isActionsColumn = cell.column.id === "actions"
+                return (
+                  <td key={cell.id} className={`${isActionsColumn ? "px-1 w-20" : "px-2"} py-1 whitespace-nowrap ${isActionsColumn ? "text-right" : "text-left"}`}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                )
+              })}
             </tr>
           ))}
         </tbody>
@@ -337,6 +376,53 @@ export function TradeTicket({
       clearInterval(interval)
     }
   }, [clobClient, fetchOrders])
+
+  // Function to cancel an order
+  const handleCancelOrder = useCallback(async (orderId: string) => {
+    if (!clobClient) {
+      addLog("Error: CLOB client not initialized", "error")
+      return
+    }
+
+    try {
+      addLog(`Canceling order: ${orderId}`, "api-request")
+      const response = await clobClient.cancelOrder({ orderID: orderId })
+      addLog(`Order canceled: ${JSON.stringify(response, null, 2)}`, "api-response")
+      // Refetch orders to update the list
+      await fetchOrders()
+    } catch (error) {
+      addLog(
+        `Error canceling order: ${error instanceof Error ? error.message : String(error)}`,
+        "error"
+      )
+    }
+  }, [clobClient, addLog, fetchOrders])
+
+  // Function to cancel all orders
+  const handleCancelAll = useCallback(async () => {
+    if (!clobClient) {
+      addLog("Error: CLOB client not initialized", "error")
+      return
+    }
+
+    if (orders.length === 0) {
+      addLog("No orders to cancel", "message")
+      return
+    }
+
+    try {
+      addLog(`Canceling all ${orders.length} orders`, "api-request")
+      const response = await clobClient.cancelAll()
+      addLog(`All orders canceled: ${JSON.stringify(response, null, 2)}`, "api-response")
+      // Refetch orders to update the list
+      await fetchOrders()
+    } catch (error) {
+      addLog(
+        `Error canceling all orders: ${error instanceof Error ? error.message : String(error)}`,
+        "error"
+      )
+    }
+  }, [clobClient, addLog, fetchOrders, orders.length])
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -744,7 +830,7 @@ export function TradeTicket({
       {/* Orders Section */}
       <div className="flex flex-col flex-1 min-h-0">
         <div className="flex-1 overflow-y-auto">
-          <OrdersTable orders={orders} />
+          <OrdersTable orders={orders} onCancel={handleCancelOrder} onCancelAll={handleCancelAll} />
         </div>
       </div>
     </div>

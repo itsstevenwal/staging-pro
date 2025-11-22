@@ -216,9 +216,12 @@ export function TradeTicket({
   const [clobSecret, setClobSecret] = useLocalStorage<string>(`${storageKey}_clobSecret`, defaultClobSecret)
   const [clobPassPhrase, setClobPassPhrase] = useLocalStorage<string>(`${storageKey}_clobPassPhrase`, defaultClobPassPhrase)
 
-  // Get token IDs from orderbook localStorage
+  // Get token IDs from orderbook localStorage (for order submission)
   const yesTokenId = useLocalStorage<string>("orderbook_yesTokenId", "71321045679252212594626385532706912750332728571942532289631379312455583992563")[0]
   const noTokenId = useLocalStorage<string>("orderbook_noTokenId", "52114319501245915516055106046884209969926127482827954674443846427813813222426")[0]
+  // Get condition ID from orderbook localStorage (for markets subscription)
+  const conditionId = useLocalStorage<string>("orderbook_conditionId", "0x5f65177b394277fd294cd75650044e32ba009a95022d88a0c1d565897d72f8f1")[0]
+
 
   // Hardcoded market parameters
   const tickSize = "0.01"
@@ -457,10 +460,9 @@ export function TradeTicket({
 
       // Subscribe to user channel with auth for trades and orders
       const USER_CHANNEL = "user"
-      // Use token IDs from orderbook, or empty array to subscribe to all markets
+      // Use condition ID from orderbook for markets subscription
       const markets: string[] = []
-      if (yesTokenId) markets.push(yesTokenId)
-      if (noTokenId) markets.push(noTokenId)
+      if (conditionId) markets.push(conditionId)
 
       const auth = {
         apikey: clobApiKey,
@@ -534,7 +536,7 @@ export function TradeTicket({
         userWsRef.current = null
       }
     }
-  }, [clobApiKey, clobSecret, clobPassPhrase, wsUrl, storageKey, addLog, yesTokenId, noTokenId, userReconnectKey])
+  }, [clobApiKey, clobSecret, clobPassPhrase, wsUrl, storageKey, addLog, conditionId, userReconnectKey])
 
   // Function to cancel an order
   const handleCancelOrder = useCallback(async (orderId: string) => {
@@ -998,11 +1000,11 @@ export function TradeTicket({
         {/* Submit Button */}
         <Button
           type="submit"
-          className="mb-1 w-full bg-black text-xs py-1 h-7"
+          className="w-full bg-black text-xs py-1 h-7"
           disabled={isSubmitting || !price || !size}
         >
           {isSubmitting
-            ? "Placing Order..."
+            ? "LOADING..."
             : `${orderType.toUpperCase()} ${orderSide.toUpperCase()}`}
         </Button>
       </form>

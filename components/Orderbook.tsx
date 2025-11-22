@@ -581,7 +581,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
           {limitedAsks.map((ask, index) => (
             <div
               key={`ask-${index}`}
-              className="relative flex items-center justify-between px-1 py-0.5 text-xs hover:bg-accent"
+              className="relative flex items-center justify-between px-1 py-0.5 text-xs hover:bg-white/10"
             >
               {ask && (
                 <div
@@ -609,7 +609,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
         </div>
 
         {/* Spread */}
-        <div className="border-y border-white/30 bg-muted/50 px-1 py-0.5 text-center text-xs font-medium">
+        <div className="border-y border-white/30 bg-white/10 px-1 py-0.5 text-center text-xs font-medium">
           <div className="text-muted-foreground">
             Spread: {asks[0] && bids[0] ? (asks[0].price - bids[0].price).toFixed(4) : "0.0000"}
           </div>
@@ -620,7 +620,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
           {limitedBids.map((bid, index) => (
             <div
               key={`bid-${index}`}
-              className="relative flex items-center justify-between px-1 py-0.5 text-xs hover:bg-accent"
+              className="relative flex items-center justify-between px-1 py-0.5 text-xs hover:bg-white/10"
             >
               {bid && (
                 <div

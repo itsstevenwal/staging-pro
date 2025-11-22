@@ -76,7 +76,7 @@ export function WebSocketLogs() {
         const isApiLog = message.startsWith("GET ") || message.startsWith("POST ") || message.startsWith("DELETE ")
 
         // All API logs should be white
-        if (isApiLog) {
+        if (isApiLog && type !== "error") {
             return "text-white"
         }
 

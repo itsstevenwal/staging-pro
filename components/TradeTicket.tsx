@@ -121,7 +121,7 @@ function OrdersTable({ orders, onCancel, onCancelAll }: OrdersTableProps) {
     [onCancel, onCancelAll]
   )
 
-  // eslint-disable-next-line react-compiler/react-compiler
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: orders,
     columns,
@@ -241,7 +241,7 @@ export function TradeTicket({
   const [userReconnectKey, setUserReconnectKey] = useState(0)
 
   // Get host and chainId from localStorage or defaults
-  const host = useMemo(() => {
+  const [host] = useState(() => {
     if (typeof window === "undefined") return "https://clob-staging.polymarket.com"
     try {
       const stored = localStorage.getItem("config_httpUrl")
@@ -266,9 +266,9 @@ export function TradeTicket({
     }
     const defaultHost = process.env.NEXT_PUBLIC_HTTP_URL || "https://clob-staging.polymarket.com"
     return defaultHost.replace(/^["']|["']$/g, '')
-  }, [])
+  })
 
-  const chainId = useMemo(() => {
+  const [chainId] = useState(() => {
     if (typeof window === "undefined") return 80002
     try {
       const stored = localStorage.getItem("config_chainId")
@@ -283,10 +283,10 @@ export function TradeTicket({
       if (raw) return parseInt(raw)
     }
     return parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || "80002")
-  }, [])
+  })
 
   // Get WebSocket URL from localStorage or defaults
-  const wsUrl = useMemo(() => {
+  const [wsUrl] = useState(() => {
     if (typeof window === "undefined") return "wss://ws-subscriptions-clob-staging.polymarket.com"
     try {
       const stored = localStorage.getItem("config_wsUrl")
@@ -306,7 +306,7 @@ export function TradeTicket({
     }
     const defaultWsUrl = process.env.NEXT_PUBLIC_WS_URL || "wss://ws-subscriptions-clob-staging.polymarket.com"
     return defaultWsUrl.replace(/^["']|["']$/g, '')
-  }, [])
+  })
 
   // Helper function to get short address (first 6 digits after 0x)
   const getShortAddress = (addr: string): string => {
@@ -326,38 +326,64 @@ export function TradeTicket({
     }
   }
 
-  // Helper function to serialize errors for logging
-  const serializeError = (error: unknown): any => {
-    if (error instanceof Error) {
-      const errorObj: Record<string, unknown> = {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      }
-      if (error.cause) {
-        errorObj.cause = error.cause
-      }
-      return errorObj
-    }
-    if (typeof error === "object" && error !== null) {
-      return error
-    }
-    return { message: String(error) }
-  }
 
   // Helper function to extract error payload from API errors
   const extractErrorPayload = (error: unknown): any => {
     if (error && typeof error === "object") {
       const errorObj = error as any
+
       // Try to extract response data (common in HTTP errors)
       if (errorObj.response?.data) {
+        const responseData = errorObj.response.data
+        // If response.data has error/status fields, prioritize those
+        if (responseData.error !== undefined || (typeof responseData.status === "number" && responseData.status >= 400)) {
+          return {
+            status: responseData.status || errorObj.response?.status,
+            statusText: errorObj.response?.statusText,
+            error: responseData.error,
+            data: responseData,
+            message: errorObj.message,
+          }
+        }
         return {
           status: errorObj.response?.status,
           statusText: errorObj.response?.statusText,
-          data: errorObj.response.data,
+          data: responseData,
           message: errorObj.message,
         }
       }
+
+      // Check for error in body property (some HTTP clients use this)
+      if (errorObj.body && typeof errorObj.body === "object") {
+        const bodyData = errorObj.body
+        if (bodyData.error !== undefined || (typeof bodyData.status === "number" && bodyData.status >= 400)) {
+          return {
+            status: bodyData.status || errorObj.status,
+            error: bodyData.error,
+            data: bodyData,
+            message: errorObj.message,
+          }
+        }
+      }
+
+      // Check if error object itself has error and status fields (direct API error response)
+      // This handles: { error: "...", status: 400 }
+      if (errorObj.error !== undefined || (typeof errorObj.status === "number" && errorObj.status >= 400)) {
+        return errorObj
+      }
+
+      // Try to parse error message as JSON (in case error response is stringified)
+      if (error instanceof Error && error.message) {
+        try {
+          const parsed = JSON.parse(error.message)
+          if (parsed && typeof parsed === "object" && (parsed.error !== undefined || (typeof parsed.status === "number" && parsed.status >= 400))) {
+            return parsed
+          }
+        } catch {
+          // Not JSON, continue
+        }
+      }
+
       // If it's an Error object, extract useful properties
       if (error instanceof Error) {
         return {
@@ -367,9 +393,24 @@ export function TradeTicket({
           cause: error.cause,
         }
       }
+
       // Otherwise, return the error object as-is
       return errorObj
     }
+
+    // If error is a string, try to parse it as JSON
+    if (typeof error === "string") {
+      try {
+        const parsed = JSON.parse(error)
+        if (parsed && typeof parsed === "object" && (parsed.error !== undefined || (typeof parsed.status === "number" && parsed.status >= 400))) {
+          return parsed
+        }
+      } catch {
+        // Not JSON, return as message
+      }
+      return { message: error }
+    }
+
     return { message: String(error) }
   }
 
@@ -463,17 +504,23 @@ export function TradeTicket({
   // Periodically fetch orders from CLOB client
   useEffect(() => {
     if (!clobClient) {
-      setOrders([])
-      return
+      // Use setTimeout to avoid synchronous setState in effect
+      const timeoutId = setTimeout(() => {
+        setOrders([])
+      }, 0)
+      return () => clearTimeout(timeoutId)
     }
 
-    // Fetch immediately
-    fetchOrders()
+    // Fetch immediately (deferred to avoid synchronous setState in effect)
+    const initialTimeoutId = setTimeout(() => {
+      fetchOrders()
+    }, 0)
 
     // Then fetch every 5 seconds
     const interval = setInterval(fetchOrders, 5000)
 
     return () => {
+      clearTimeout(initialTimeoutId)
       clearInterval(interval)
     }
   }, [clobClient, fetchOrders])
@@ -549,13 +596,13 @@ export function TradeTicket({
         addLog(`RECEIVE user [0x${shortAddr}]`, "receive", data)
       } catch (error) {
         const shortAddr = getShortAddress(address)
-        addLog(`ERROR RECEIVE user [0x${shortAddr}]`, "error", serializeError(error))
+        addLog(`ERROR RECEIVE user [0x${shortAddr}]`, "error", JSON.stringify(error))
       }
     }
 
     ws.onerror = (error) => {
       const shortAddr = getShortAddress(address)
-      addLog(`CONNECT ERROR user [0x${shortAddr}]`, "error", serializeError(error))
+      addLog(`CONNECT ERROR user [0x${shortAddr}]`, "error", JSON.stringify(error))
     }
 
     ws.onclose = (event) => {
@@ -758,8 +805,11 @@ export function TradeTicket({
 
       const latency = Math.round(performance.now() - startTime)
 
-      // Check if status is "live" (success), otherwise log as error
-      if (response?.status !== "live") {
+      // Check if response indicates an error
+      // The error response structure: { error: "...", status: 400 }
+      const isError = response.status === 400
+
+      if (isError) {
         addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", response)
       } else {
         addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", response)

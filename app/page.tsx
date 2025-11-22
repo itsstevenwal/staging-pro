@@ -103,6 +103,7 @@ export default function Home() {
           </div>
           <button
             onClick={handleReset}
+            className="hover:opacity-70 transition-opacity"
           >
             <RotateCcw className="h-3 w-3 mr-1" />
           </button>

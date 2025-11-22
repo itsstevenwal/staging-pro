@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Staging Pro",
+  title: "sp",
   description: "Next.js app with Tailwind, shadcn/ui, and TanStack Query",
 };
 

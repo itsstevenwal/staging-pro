@@ -108,7 +108,7 @@ function OrdersTable({ orders, onCancel, onCancelAll }: OrdersTableProps) {
             <div className="flex justify-end">
               <button
                 onClick={() => onCancel(order.id)}
-                className="p-0.5 text-muted-foreground hover:text-white hover:bg-white/10 active:opacity-50 transition-colors rounded"
+                className="p-0.5 text-muted-foreground hover:text-white hover:bg-white/10 hover:opacity-70 active:opacity-50 transition-colors rounded"
                 title="Cancel order"
               >
                 <X className="w-3 h-3" />
@@ -310,6 +310,71 @@ export function TradeTicket({
     return defaultWsUrl.replace(/^["']|["']$/g, '')
   }, [])
 
+  // Helper function to get short address (first 6 digits after 0x)
+  const getShortAddress = (addr: string): string => {
+    if (!addr || !addr.startsWith("0x")) return ""
+    return addr.slice(2, 8).toUpperCase()
+  }
+
+  // Helper function to extract URI path from full URL
+  const getUriPath = (url: string): string => {
+    try {
+      const urlObj = new URL(url)
+      return urlObj.pathname
+    } catch {
+      // If URL parsing fails, try to extract path manually
+      const match = url.match(/\/[^?]*/)
+      return match ? match[0] : url
+    }
+  }
+
+  // Helper function to serialize errors for logging
+  const serializeError = (error: unknown): any => {
+    if (error instanceof Error) {
+      const errorObj: Record<string, unknown> = {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      }
+      if (error.cause) {
+        errorObj.cause = error.cause
+      }
+      return errorObj
+    }
+    if (typeof error === "object" && error !== null) {
+      return error
+    }
+    return { message: String(error) }
+  }
+
+  // Helper function to extract error payload from API errors
+  const extractErrorPayload = (error: unknown): any => {
+    if (error && typeof error === "object") {
+      const errorObj = error as any
+      // Try to extract response data (common in HTTP errors)
+      if (errorObj.response?.data) {
+        return {
+          status: errorObj.response?.status,
+          statusText: errorObj.response?.statusText,
+          data: errorObj.response.data,
+          message: errorObj.message,
+        }
+      }
+      // If it's an Error object, extract useful properties
+      if (error instanceof Error) {
+        return {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          cause: error.cause,
+        }
+      }
+      // Otherwise, return the error object as-is
+      return errorObj
+    }
+    return { message: String(error) }
+  }
+
   // Create CLOB client instance
   const clobClient = useMemo(() => {
     if (!pk || !address || !clobApiKey || !clobSecret || !clobPassPhrase) {
@@ -348,17 +413,17 @@ export function TradeTicket({
       return
     }
 
+    const apiUrl = `${host}/orders`
+    const uriPath = getUriPath(apiUrl)
+    const shortAddr = getShortAddress(address)
+    const startTime = performance.now()
+
     try {
-      const startTime = performance.now()
       const openOrders = await clobClient.getOpenOrders()
-      const endTime = performance.now()
-      const latency = endTime - startTime
+      const latency = Math.round(performance.now() - startTime)
 
-      // Log latency
-      addLog(`getOpenOrders latency: ${latency.toFixed(2)}ms`, "api-request")
-
-      // Log raw orders from API
-      addLog(`Received ${openOrders.length} orders from API: ${JSON.stringify(openOrders, null, 2)}`, "message")
+      // Log receive with payload and latency
+      addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", openOrders)
 
       // Transform OpenOrder[] to Order[]
       const transformedOrders: Order[] = openOrders.map((openOrder) => {
@@ -390,14 +455,12 @@ export function TradeTicket({
       })
 
       setOrders(transformedOrders)
-      addLog(`Fetched ${transformedOrders.length} orders`, "message")
     } catch (error) {
-      addLog(
-        `Error fetching orders: ${error instanceof Error ? error.message : String(error)}`,
-        "error"
-      )
+      const errorPayload = extractErrorPayload(error)
+      const latency = Math.round(performance.now() - startTime)
+      addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
     }
-  }, [clobClient, addLog])
+  }, [clobClient, addLog, host, address])
 
   // Periodically fetch orders from CLOB client
   useEffect(() => {
@@ -440,7 +503,8 @@ export function TradeTicket({
 
     // Connect to WebSocket for user channel
     if (!wsUrl || wsUrl.trim() === "") {
-      addLog(`[${storageKey}] WebSocket URL is empty`, "error")
+      const shortAddr = getShortAddress(address)
+      addLog(`CONNECT ERROR user [0x${shortAddr}]`, "error", { message: "WebSocket URL is empty" })
       setIsUserConnected(false)
       return
     }
@@ -453,10 +517,12 @@ export function TradeTicket({
     shouldUserReconnectRef.current = true
 
     ws.onopen = () => {
-      addLog(`[${storageKey}] WebSocket connected for user channel: ${userWsUrl}`, "connection")
       setIsUserConnected(true)
       userReconnectAttemptRef.current = 0
       shouldUserReconnectRef.current = true
+
+      const shortAddr = getShortAddress(address)
+      addLog(`CONNECTED user [0x${shortAddr}]`, "receive", { url: userWsUrl })
 
       // Subscribe to user channel with auth for trades and orders
       const USER_CHANNEL = "user"
@@ -477,28 +543,38 @@ export function TradeTicket({
       }
 
       ws.send(JSON.stringify(subscribeMessage))
-      addLog(`[${storageKey}] Subscribed to user channel (trades & orders): ${JSON.stringify({ markets, type: USER_CHANNEL, auth: { ...auth, secret: "***", passphrase: "***" } }, null, 2)}`, "message")
+      // Log send with payload (masked secrets)
+      addLog(`SEND user [0x${shortAddr}]`, "send", { markets, type: USER_CHANNEL, auth: { ...auth, secret: "***", passphrase: "***" } })
     }
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        addLog(`[${storageKey}] User channel response: ${JSON.stringify(data, null, 2)}`, "message")
+        const shortAddr = getShortAddress(address)
+        addLog(`RECEIVE user [0x${shortAddr}]`, "receive", data)
       } catch (error) {
-        const errorMessage = `[${storageKey}] Error parsing user channel message: ${error instanceof Error ? error.message : String(error)}`
-        addLog(errorMessage, "error")
+        const shortAddr = getShortAddress(address)
+        addLog(`ERROR RECEIVE user [0x${shortAddr}]`, "error", serializeError(error))
       }
     }
 
     ws.onerror = (error) => {
-      const errorMessage = `[${storageKey}] User channel WebSocket error: ${error instanceof Error ? error.message : String(error)}`
-      addLog(errorMessage, "error")
+      const shortAddr = getShortAddress(address)
+      addLog(`CONNECT ERROR user [0x${shortAddr}]`, "error", serializeError(error))
       setIsUserConnected(false)
     }
 
     ws.onclose = (event) => {
-      addLog(`[${storageKey}] User channel WebSocket closed (code: ${event.code}, reason: ${event.reason || 'none'})`, "connection")
       setIsUserConnected(false)
+
+      const shortAddr = getShortAddress(address)
+      const closeInfo = {
+        code: event.code,
+        reason: event.reason || "No reason provided",
+        wasClean: event.wasClean,
+        url: userWsUrl
+      }
+      addLog(`DISCONNECTED user [0x${shortAddr}]`, "error", closeInfo)
 
       // Only attempt reconnection if we should reconnect and the connection wasn't manually closed
       if (shouldUserReconnectRef.current && event.code !== 1000) {
@@ -506,16 +582,12 @@ export function TradeTicket({
         // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
         const delay = Math.min(1000 * Math.pow(2, userReconnectAttemptRef.current - 1), 30000)
 
-        addLog(`[${storageKey}] Attempting to reconnect user channel in ${delay / 1000}s (attempt ${userReconnectAttemptRef.current})...`, "connection")
-
         userReconnectTimeoutRef.current = setTimeout(() => {
           if (shouldUserReconnectRef.current && (!userWsRef.current || userWsRef.current.readyState === WebSocket.CLOSED)) {
             // Trigger reconnection by updating reconnectKey
             setUserReconnectKey(prev => prev + 1)
           }
         }, delay)
-      } else {
-        addLog(`[${storageKey}] User channel WebSocket reconnection disabled (manual close or component unmounting)`, "connection")
       }
     }
 
@@ -545,25 +617,24 @@ export function TradeTicket({
       return
     }
 
-    try {
-      addLog(`Canceling order: ${orderId}`, "api-request")
-      const startTime = performance.now()
-      const response = await clobClient.cancelOrder({ orderID: orderId })
-      const endTime = performance.now()
-      const latency = endTime - startTime
+    const apiUrl = `${host}/orders/${orderId}`
+    const uriPath = getUriPath(apiUrl)
+    const shortAddr = getShortAddress(address)
+    const startTime = performance.now()
 
-      // Log latency
-      addLog(`cancelOrder latency: ${latency.toFixed(2)}ms`, "api-request")
-      addLog(`Order canceled: ${JSON.stringify(response, null, 2)}`, "api-response")
+    try {
+      const response = await clobClient.cancelOrder({ orderID: orderId })
+      const latency = Math.round(performance.now() - startTime)
+
+      addLog(`DELETE ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", response)
       // Refetch orders to update the list
       await fetchOrders()
     } catch (error) {
-      addLog(
-        `Error canceling order: ${error instanceof Error ? error.message : String(error)}`,
-        "error"
-      )
+      const errorPayload = extractErrorPayload(error)
+      const latency = Math.round(performance.now() - startTime)
+      addLog(`DELETE ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
     }
-  }, [clobClient, addLog, fetchOrders])
+  }, [clobClient, addLog, fetchOrders, host, address])
 
   // Function to cancel all orders
   const handleCancelAll = useCallback(async () => {
@@ -573,29 +644,27 @@ export function TradeTicket({
     }
 
     if (orders.length === 0) {
-      addLog("No orders to cancel", "message")
       return
     }
 
-    try {
-      addLog(`Canceling all ${orders.length} orders`, "api-request")
-      const startTime = performance.now()
-      const response = await clobClient.cancelAll()
-      const endTime = performance.now()
-      const latency = endTime - startTime
+    const apiUrl = `${host}/orders`
+    const uriPath = getUriPath(apiUrl)
+    const shortAddr = getShortAddress(address)
+    const startTime = performance.now()
 
-      // Log latency
-      addLog(`cancelAll latency: ${latency.toFixed(2)}ms`, "api-request")
-      addLog(`All orders canceled: ${JSON.stringify(response, null, 2)}`, "api-response")
+    try {
+      const response = await clobClient.cancelAll()
+      const latency = Math.round(performance.now() - startTime)
+
+      addLog(`DELETE ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", response)
       // Refetch orders to update the list
       await fetchOrders()
     } catch (error) {
-      addLog(
-        `Error canceling all orders: ${error instanceof Error ? error.message : String(error)}`,
-        "error"
-      )
+      const errorPayload = extractErrorPayload(error)
+      const latency = Math.round(performance.now() - startTime)
+      addLog(`DELETE ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
     }
-  }, [clobClient, addLog, fetchOrders, orders.length])
+  }, [clobClient, addLog, fetchOrders, orders.length, host, address])
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -639,24 +708,10 @@ export function TradeTicket({
       return
     }
 
-    // Log order details (without sensitive data)
-    const orderData = {
-      type: orderType,
-      side: orderSide,
-      price: parseFloat(price),
-      size: parseFloat(size),
-      tif,
-      tokenID,
-      tickSize,
-      negRisk,
-      signatureType,
-      host,
-      chainId,
-    }
-    addLog(
-      `Placing order: ${JSON.stringify(orderData, null, 2)}`,
-      "api-request"
-    )
+    const apiUrl = `${host}/orders`
+    const uriPath = getUriPath(apiUrl)
+    const shortAddr = getShortAddress(address)
+    const startTime = performance.now()
 
     try {
       // Map order type to CLOB Side enum
@@ -678,12 +733,6 @@ export function TradeTicket({
           side: clobSide,
         }
 
-        addLog(
-          `Creating market order with CLOB client: ${JSON.stringify(userMarketOrder, null, 2)}`,
-          "api-request"
-        )
-
-        const startTime = performance.now()
         response = await clobClient.createAndPostMarketOrder(
           userMarketOrder,
           {
@@ -693,11 +742,6 @@ export function TradeTicket({
           clobOrderType,
           false // deferExec
         )
-        const endTime = performance.now()
-        const latency = endTime - startTime
-
-        // Log latency
-        addLog(`createAndPostMarketOrder latency: ${latency.toFixed(2)}ms`, "api-request")
       } else {
         // Limit orders use createAndPostOrder
         const clobOrderType = tif === "GTD" ? ClobOrderType.GTD : ClobOrderType.GTC
@@ -709,12 +753,6 @@ export function TradeTicket({
           side: clobSide,
         }
 
-        addLog(
-          `Creating limit order with CLOB client: ${JSON.stringify(userOrder, null, 2)}`,
-          "api-request"
-        )
-
-        const startTime = performance.now()
         response = await clobClient.createAndPostOrder(
           userOrder,
           {
@@ -724,38 +762,22 @@ export function TradeTicket({
           clobOrderType,
           false // deferExec
         )
-        const endTime = performance.now()
-        const latency = endTime - startTime
-
-        // Log latency
-        addLog(`createAndPostOrder latency: ${latency.toFixed(2)}ms`, "api-request")
       }
 
-      // Log API response
-      addLog(
-        `Order Response: ${JSON.stringify(response, null, 2)}`,
-        "api-response"
-      )
+      const latency = Math.round(performance.now() - startTime)
 
       // Check if status is "live" (success), otherwise log as error
-      if (response?.status === "live") {
-        addLog(`Order placed successfully: ${response?.order_id || "unknown"}`, "api-response")
+      if (response?.status !== "live") {
+        addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", response)
+      } else {
+        addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", response)
         // Refetch orders to show the new order
         await fetchOrders()
-      } else {
-        addLog(
-          `Order failed with status ${response?.status || "unknown"}: ${JSON.stringify(response, null, 2)}`,
-          "error"
-        )
       }
     } catch (error) {
-      addLog(
-        `Order Error: ${error instanceof Error ? error.message : String(error)}`,
-        "error"
-      )
-      if (error instanceof Error && error.stack) {
-        addLog(`Stack trace: ${error.stack}`, "error")
-      }
+      const errorPayload = extractErrorPayload(error)
+      const latency = Math.round(performance.now() - startTime)
+      addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
     }
 
     setIsSubmitting(false)
@@ -768,7 +790,7 @@ export function TradeTicket({
     <div className="flex h-full flex-col rounded-sm border border-white/30 bg-black">
       <div className="border-b border-white/30">
         <div className="px-1 py-0.5">
-          <h2 className="text-xs">trade</h2>
+          <h2 className="text-xs">trade[0x{getShortAddress(address).toUpperCase()}]</h2>
         </div>
         <div className="px-1 py-1 space-y-1 border-t border-white/30">
           <div className="flex items-center gap-1">
@@ -781,7 +803,7 @@ export function TradeTicket({
             />
             <button
               onClick={() => copyToClipboard(address)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               <Copy className="w-2.5 h-2.5" />
             </button>
@@ -801,13 +823,13 @@ export function TradeTicket({
             />
             <button
               onClick={() => setShowPk(!showPk)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               {showPk ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </button>
             <button
               onClick={() => copyToClipboard(pk)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               <Copy className="w-2.5 h-2.5" />
             </button>
@@ -827,13 +849,13 @@ export function TradeTicket({
             />
             <button
               onClick={() => setShowClobApiKey(!showClobApiKey)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               {showClobApiKey ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </button>
             <button
               onClick={() => copyToClipboard(clobApiKey)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               <Copy className="w-2.5 h-2.5" />
             </button>
@@ -853,13 +875,13 @@ export function TradeTicket({
             />
             <button
               onClick={() => setShowClobSecret(!showClobSecret)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               {showClobSecret ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </button>
             <button
               onClick={() => copyToClipboard(clobSecret)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               <Copy className="w-2.5 h-2.5" />
             </button>
@@ -879,13 +901,13 @@ export function TradeTicket({
             />
             <button
               onClick={() => setShowClobPassPhrase(!showClobPassPhrase)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               {showClobPassPhrase ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
             </button>
             <button
               onClick={() => copyToClipboard(clobPassPhrase)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               <Copy className="w-2.5 h-2.5" />
             </button>

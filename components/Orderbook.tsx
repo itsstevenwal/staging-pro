@@ -27,7 +27,7 @@ interface OrderbookProps {
 }
 
 // Helper function to serialize errors for logging
-const serializeError = (error: unknown): string => {
+const serializeError = (error: unknown): any => {
   if (error instanceof Error) {
     const errorObj: Record<string, unknown> = {
       name: error.name,
@@ -37,12 +37,12 @@ const serializeError = (error: unknown): string => {
     if (error.cause) {
       errorObj.cause = error.cause
     }
-    return JSON.stringify(errorObj, null, 2)
+    return errorObj
   }
   if (typeof error === "object" && error !== null) {
-    return JSON.stringify(error, null, 2)
+    return error
   }
-  return String(error)
+  return { message: String(error) }
 }
 
 export function Orderbook({ wsUrl }: OrderbookProps) {
@@ -98,7 +98,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
 
     // Connect to WebSocket for orderbook updates using the URL from navbar
     if (!wsUrl || wsUrl.trim() === "") {
-      addLog("WebSocket URL is empty", "error")
+      addLog("CONNECT ERROR market", "error", { message: "WebSocket URL is empty" })
       setIsConnected(false)
       return
     }
@@ -111,10 +111,11 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
     shouldReconnectRef.current = true
 
     ws.onopen = () => {
-      addLog(`WebSocket connected for orderbook updates: ${marketWsUrl}`, "connection")
       setIsConnected(true)
       reconnectAttemptRef.current = 0 // Reset reconnect attempts on successful connection
       shouldReconnectRef.current = true
+
+      addLog("CONNECTED market", "receive", { url: marketWsUrl })
 
       // Subscribe to market channel with asset IDs
       const MARKET_CHANNEL = "market"
@@ -128,7 +129,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
           type: MARKET_CHANNEL
         }
         ws.send(JSON.stringify(subscribeMessage))
-        addLog(`Subscribed to market channel: ${JSON.stringify(subscribeMessage)}`, "message")
+        addLog(`SEND market`, "send", subscribeMessage)
       }
     }
 
@@ -137,7 +138,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
         const data = JSON.parse(event.data)
 
         // Add the response to logs
-        addLog(`Orderbook response: ${JSON.stringify(data, null, 2)}`, "message")
+        addLog(`RECEIVE market`, "receive", data)
 
         // Process orderbook update
         const processOrderbook = (bids: Array<[string, string]>, asks: Array<[string, string]>): OrderbookData => {
@@ -356,20 +357,25 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
           }
         }
       } catch (error) {
-        const errorMessage = `Error parsing orderbook update: ${serializeError(error)}`
-        addLog(errorMessage, "error")
+        addLog("ERROR RECEIVE market", "error", serializeError(error))
       }
     }
 
     ws.onerror = (error) => {
-      const errorMessage = `WebSocket error: ${serializeError(error)}`
-      addLog(errorMessage, "error")
+      addLog("CONNECT ERROR market", "error", serializeError(error))
       setIsConnected(false)
     }
 
     ws.onclose = (event) => {
-      addLog(`WebSocket closed (code: ${event.code}, reason: ${event.reason || 'none'})`, "connection")
       setIsConnected(false)
+
+      const closeInfo = {
+        code: event.code,
+        reason: event.reason || "No reason provided",
+        wasClean: event.wasClean,
+        url: marketWsUrl
+      }
+      addLog("DISCONNECTED market", "error", closeInfo)
 
       // Only attempt reconnection if we should reconnect and the connection wasn't manually closed
       if (shouldReconnectRef.current && event.code !== 1000) {
@@ -377,16 +383,12 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
         // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
         const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current - 1), 30000)
 
-        addLog(`Attempting to reconnect in ${delay / 1000}s (attempt ${reconnectAttemptRef.current})...`, "connection")
-
         reconnectTimeoutRef.current = setTimeout(() => {
           if (shouldReconnectRef.current && (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED)) {
             // Trigger reconnection by updating reconnectKey, which will cause the effect to re-run
             setReconnectKey(prev => prev + 1)
           }
         }, delay)
-      } else {
-        addLog("WebSocket reconnection disabled (manual close or component unmounting)", "connection")
       }
     }
 
@@ -412,7 +414,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
                 params: [`orderbook.${yesTokenId}`]
               }))
             } catch (error) {
-              addLog(`Error unsubscribing from yes token: ${serializeError(error)}`, "error")
+              addLog(`ERROR SEND`, "error", { ...serializeError(error), action: "unsubscribe yes token" })
             }
           }
           if (noTokenId) {
@@ -422,7 +424,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
                 params: [`orderbook.${noTokenId}`]
               }))
             } catch (error) {
-              addLog(`Error unsubscribing from no token: ${serializeError(error)}`, "error")
+              addLog(`ERROR SEND`, "error", { ...serializeError(error), action: "unsubscribe no token" })
             }
           }
         }
@@ -447,7 +449,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
           type: MARKET_CHANNEL
         }
         wsRef.current.send(JSON.stringify(subscribeMessage))
-        addLog(`Resubscribed to market channel: ${JSON.stringify(subscribeMessage)}`, "message")
+        addLog(`SEND market`, "send", subscribeMessage)
       }
     }
   }, [yesTokenId, noTokenId, addLog])
@@ -513,7 +515,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
             />
             <button
               onClick={() => copyToClipboard(yesTokenId)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               <Copy className="w-2.5 h-2.5" />
             </button>
@@ -528,7 +530,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
             />
             <button
               onClick={() => copyToClipboard(noTokenId)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               <Copy className="w-2.5 h-2.5" />
             </button>
@@ -544,7 +546,7 @@ export function Orderbook({ wsUrl }: OrderbookProps) {
             />
             <button
               onClick={() => copyToClipboard(conditionId)}
-              className="p-0.5 text-white hover:bg-white/5 active:opacity-50 transition-colors"
+              className="p-0.5 text-white hover:bg-white/5 hover:opacity-70 active:opacity-50 transition-colors"
             >
               <Copy className="w-2.5 h-2.5" />
             </button>

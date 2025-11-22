@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Download, ChevronDown, ChevronRight } from "lucide-react"
 import { useLogs, LogType } from "@/lib/log-context"
 import { Button } from "@/components/ui/button"
@@ -10,14 +10,16 @@ export function WebSocketLogs() {
     const logsEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
-    const [isUserScrolling, setIsUserScrolling] = useState(false)
+    const [isBottom, setIsBottom] = useState(true)
+    const isProgrammaticScrollRef = useRef(false)
 
     // Check if user is at the absolute bottom of the scroll container
-    const isAtBottom = () => {
-        const container = scrollContainerRef.current
+    const checkIsAtBottom = (targetContainer?: HTMLElement) => {
+        const container = targetContainer || scrollContainerRef.current
         if (!container) return true
 
         const threshold = 20 // pixels from bottom
+        // Read current values directly to ensure we get the latest position
         const scrollTop = container.scrollTop
         const scrollHeight = container.scrollHeight
         const clientHeight = container.clientHeight
@@ -25,37 +27,51 @@ export function WebSocketLogs() {
         return scrollHeight - scrollTop - clientHeight <= threshold
     }
 
-    useEffect(() => {
-        // Only auto-scroll if user is at the absolute bottom (not manually scrolling up)
-        if (!isUserScrolling && isAtBottom()) {
-            logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    useLayoutEffect(() => {
+        // Only auto-scroll if user is at the bottom
+        console.log("isBottom", isBottom)
+        if (isBottom) {
+            // Mark as programmatic scroll to prevent updating isBottom
+            isProgrammaticScrollRef.current = true
+
+            const container = scrollContainerRef.current
+            if (container) {
+                console.log("container", container.scrollTop, container.scrollHeight, container.clientHeight)
+                // Scroll immediately - useLayoutEffect runs synchronously after DOM updates
+                container.scrollTop = container.scrollHeight
+
+                // Reset flag after scroll event processes (use setTimeout to let scroll event fire)
+                setTimeout(() => {
+                    isProgrammaticScrollRef.current = false
+                }, 0)
+            }
         }
-    }, [logs, isUserScrolling])
+    }, [logs, isBottom])
 
     // Handle scroll events to detect manual scrolling
     useEffect(() => {
         const container = scrollContainerRef.current
         if (!container) return
 
-        let scrollTimeout: NodeJS.Timeout
-
-        const handleScroll = () => {
-            setIsUserScrolling(true)
-
-            // Clear existing timeout
-            clearTimeout(scrollTimeout)
-
-            // Reset isUserScrolling after user stops scrolling
-            scrollTimeout = setTimeout(() => {
-                setIsUserScrolling(false)
-            }, 150)
+        const handleScroll = (e: Event) => {
+            // Only update isBottom if this is a user-initiated scroll
+            if (!isProgrammaticScrollRef.current) {
+                // Read directly from the event target to get the current scroll position
+                const target = e.target as HTMLElement
+                // Use requestAnimationFrame to ensure we read the current scroll position
+                // after the browser has fully updated it
+                requestAnimationFrame(() => {
+                    if (!isProgrammaticScrollRef.current && target) {
+                        setIsBottom(checkIsAtBottom(target))
+                    }
+                })
+            }
         }
 
         container.addEventListener('scroll', handleScroll)
 
         return () => {
             container.removeEventListener('scroll', handleScroll)
-            clearTimeout(scrollTimeout)
         }
     }, [])
 

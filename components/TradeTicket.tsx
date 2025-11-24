@@ -120,14 +120,6 @@ function TradesTable({ trades }: TradesTableProps) {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (trades.length === 0) {
-    return (
-      <div className="text-xs text-muted-foreground text-center py-4">
-        No trades yet
-      </div>
-    )
-  }
-
   return (
     <div className="overflow-x-auto bg-black orders-scrollbar">
       <table className="w-full text-[11px] min-w-max">
@@ -151,18 +143,26 @@ function TradesTable({ trades }: TradesTableProps) {
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr
-              key={row.id}
-              className="border-b border-white/10 hover:bg-white/5"
-            >
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="px-2 py-1 whitespace-nowrap text-left">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
+          {trades.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} className="px-2 py-4 text-xs text-muted-foreground text-center">
+                No trades yet
+              </td>
             </tr>
-          ))}
+          ) : (
+            table.getRowModel().rows.map((row) => (
+              <tr
+                key={row.id}
+                className="border-b border-white/10 hover:bg-white/5"
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className="px-2 py-1 whitespace-nowrap text-left">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -262,14 +262,6 @@ function OrdersTable({ orders, onCancel, onCancelAll }: OrdersTableProps) {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (orders.length === 0) {
-    return (
-      <div className="text-xs text-muted-foreground text-center py-4">
-        No orders yet
-      </div>
-    )
-  }
-
   return (
     <div className="overflow-x-auto bg-black orders-scrollbar">
       <table className="w-full text-[11px] min-w-max">
@@ -296,21 +288,29 @@ function OrdersTable({ orders, onCancel, onCancelAll }: OrdersTableProps) {
           ))}
         </thead>
         <tbody>
-          {table.getRowModel().rows.map((row) => (
-            <tr
-              key={row.id}
-              className="border-b border-white/10 hover:bg-white/5"
-            >
-              {row.getVisibleCells().map((cell) => {
-                const isActionsColumn = cell.column.id === "actions"
-                return (
-                  <td key={cell.id} className={`${isActionsColumn ? "px-1 w-20" : "px-2"} py-1 whitespace-nowrap ${isActionsColumn ? "text-right" : "text-left"}`}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                )
-              })}
+          {orders.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} className="px-2 py-4 text-xs text-muted-foreground text-center">
+                No orders yet
+              </td>
             </tr>
-          ))}
+          ) : (
+            table.getRowModel().rows.map((row) => (
+              <tr
+                key={row.id}
+                className="border-b border-white/10 hover:bg-white/5"
+              >
+                {row.getVisibleCells().map((cell) => {
+                  const isActionsColumn = cell.column.id === "actions"
+                  return (
+                    <td key={cell.id} className={`${isActionsColumn ? "px-1 w-20" : "px-2"} py-1 whitespace-nowrap ${isActionsColumn ? "text-right" : "text-left"}`}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -582,7 +582,7 @@ export function TradeTicket({
   }, [pk, address, clobApiKey, clobSecret, clobPassPhrase, host, chainId, signatureType, addLog])
 
   // Function to fetch orders from CLOB client
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (shouldLog: boolean = false) => {
     if (!clobClient) {
       setOrders([])
       return
@@ -598,7 +598,9 @@ export function TradeTicket({
       const latency = Math.round(performance.now() - startTime)
 
       // Log receive with payload and latency
-      addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", openOrders)
+      if (shouldLog) {
+        addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", openOrders)
+      }
 
       // Transform OpenOrder[] to Order[]
       const transformedOrders: Order[] = openOrders.map((openOrder) => {
@@ -633,12 +635,14 @@ export function TradeTicket({
     } catch (error) {
       const errorPayload = extractErrorPayload(error)
       const latency = Math.round(performance.now() - startTime)
-      addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
+      if (shouldLog) {
+        addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
+      }
     }
   }, [clobClient, addLog, host, address])
 
   // Function to fetch trades from CLOB client
-  const fetchTrades = useCallback(async () => {
+  const fetchTrades = useCallback(async (shouldLog: boolean = false) => {
     if (!clobClient) {
       setTrades([])
       return
@@ -658,7 +662,9 @@ export function TradeTicket({
       const latency = Math.round(performance.now() - startTime)
 
       // Log receive with payload and latency
-      addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", tradesData)
+      if (shouldLog) {
+        addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", tradesData)
+      }
 
       // Check if tradesData is valid
       if (!tradesData || !Array.isArray(tradesData)) {
@@ -707,7 +713,9 @@ export function TradeTicket({
     } catch (error) {
       const errorPayload = extractErrorPayload(error)
       const latency = Math.round(performance.now() - startTime)
-      addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
+      if (shouldLog) {
+        addLog(`GET ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
+      }
       setTrades([])
     }
   }, [clobClient, addLog, host, address])
@@ -987,6 +995,8 @@ export function TradeTicket({
     const shortAddr = getShortAddress(address)
     const startTime = performance.now()
 
+    let requestPayload: any
+
     try {
       // Map order type to CLOB Side enum
       const clobSide = orderType === "buy" ? Side.BUY : Side.SELL
@@ -1005,6 +1015,11 @@ export function TradeTicket({
           price: parseFloat(price), // Optional for market orders
           amount: parseFloat(size), // For BUY: $$$ amount, for SELL: shares
           side: clobSide,
+        }
+
+        requestPayload = {
+          ...userMarketOrder,
+          orderType,
         }
 
         response = await clobClient.createAndPostMarketOrder(
@@ -1027,6 +1042,11 @@ export function TradeTicket({
           side: clobSide,
         }
 
+        requestPayload = {
+          ...userOrder,
+          orderType,
+        }
+
         response = await clobClient.createAndPostOrder(
           userOrder,
           {
@@ -1045,16 +1065,16 @@ export function TradeTicket({
       const isError = response.status === 400
 
       if (isError) {
-        addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", response)
+        addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", { request: requestPayload, response })
       } else {
-        addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", response)
+        addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "receive", { request: requestPayload, response })
         // Refetch orders to show the new order
         await fetchOrders()
       }
     } catch (error) {
       const errorPayload = extractErrorPayload(error)
       const latency = Math.round(performance.now() - startTime)
-      addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", errorPayload)
+      addLog(`POST ${uriPath} [0x${shortAddr}] ${latency}ms`, "error", { request: requestPayload, error: errorPayload })
     }
 
     setIsSubmitting(false)
